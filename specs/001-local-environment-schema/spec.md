@@ -14,6 +14,32 @@ bearer-token setup and a health endpoint reporting liveness and database connect
 Explicitly not in this spec: the rollup procedure body, CRUD endpoints, domain rule
 enforcement in application code."
 
+## Clarifications
+
+### Session 2026-08-12
+
+- Q: Should seeded historical entries be exempt from the 90-day backdating rule that
+  will apply to entries created through the API? → A: Yes. The 90-day window is a
+  period-close rule governing new submissions only; recorded history is not
+  retroactively invalidated by it. Seeded data spans the full 24 months.
+- Q: Should the seeded dataset include inactive clients, matters and timekeepers, and
+  should historical time entries be allowed to reference them? → A: Yes. A minority
+  (roughly 10–15%) of each are inactive, and their historical entries are retained.
+  Deactivation is forward-looking only and does not invalidate what was already
+  recorded.
+- Q: When the health endpoint is called, what should the caller actually receive — a
+  bare status code, or a response body naming each check and its result? → A: A body.
+  Success returns 200 and failure returns 503, both carrying a small JSON payload that
+  lists each check by name with its status and duration.
+- Q: How should a reviewer obtain a token so they can call a protected route, given that
+  this feature closes everything except health and the docs? → A: The bootstrap script
+  prints a ready-to-use development token at the end of its run, signed with the same
+  symmetric development key. No token endpoint is added.
+- Q: When the reset option is used, how far should it tear down — just the database, or
+  the container and its storage volume as well? → A: The database only. The container
+  keeps running. A full wipe is the container tool's own down-with-volumes command,
+  documented rather than reimplemented in the script.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - A reviewer runs the project from a cold machine (Priority: P1)
@@ -42,8 +68,8 @@ the reviewer has a working environment even if no other feature exists.
 3. **Given** the bootstrap has completed, **When** the reviewer counts rows in each
    table, **Then** the volumes match the seeded figures stated in this spec.
 4. **Given** the database container is stopped, **When** the health endpoint is
-   requested, **Then** it responds with a failure status naming database connectivity
-   as the cause rather than timing out or returning success.
+   requested, **Then** it responds 503 with a body naming the database check as the
+   failing one, rather than timing out or returning success.
 
 ---
 
@@ -72,7 +98,10 @@ object definitions between the two runs.
    applied, **When** the script is run, **Then** it applies the schema and seeds without
    requiring the container to be recreated.
 4. **Given** a request to rebuild from scratch, **When** the script is run with its reset
-   option, **Then** the existing data is discarded and the environment is rebuilt.
+   option, **Then** the database is dropped, recreated, migrated, and reseeded, while
+   the container continues running throughout.
+5. **Given** the reset option is not supplied, **When** the script runs against a
+   complete environment, **Then** no data is dropped under any circumstance.
 
 ---
 
@@ -117,7 +146,7 @@ each later feature has to remember to opt in. It is last because nothing else in
 spec depends on it.
 
 **Independent Test**: Call the health endpoint and a placeholder protected route with
-and without a token and compare the responses.
+the token printed by the bootstrap script, then without it, and compare the responses.
 
 **Acceptance Scenarios**:
 
@@ -127,6 +156,9 @@ and without a token and compare the responses.
    response is a 401 and no data is disclosed.
 3. **Given** a token that is expired or signed with the wrong key, **When** a protected
    route is requested, **Then** the response is a 401 rather than a server error.
+4. **Given** the token printed by the bootstrap script, **When** a protected route is
+   requested, **Then** the request is accepted — establishing that the 401s above are
+   the boundary working rather than everything being closed unconditionally.
 
 ---
 
@@ -146,8 +178,10 @@ and without a token and compare the responses.
   database that looks complete.
 - **The wrong SDK is the default on the machine.** The pinned version must govern, and
   the failure message when it is absent must name the required version.
-- **A time entry would be seeded on a date outside the permitted window.** The generator
-  must not produce data that the application's own rules would reject.
+- **A time entry would be seeded with a future date.** Dates are drawn relative to the
+  fixed reference date; none may fall after it. Backdating beyond 90 days is expected
+  and permitted for seeded history (FR-018a), but future-dating is not permitted for any
+  entry from any source.
 
 ## Requirements *(mandatory)*
 
@@ -165,6 +199,16 @@ and without a token and compare the responses.
   exist.
 - **FR-004**: The command MUST offer an explicit reset option that discards existing
   data and rebuilds. Reset MUST NOT be the default.
+- **FR-004a**: Reset MUST drop and recreate the database only, leaving the container
+  running. It MUST NOT stop, remove or rebuild the container, and MUST NOT reimplement
+  the container tooling's own teardown.
+- **FR-004b**: Reset MUST NOT prompt for confirmation — the explicit switch is the
+  confirmation, and a prompt would make the script unusable unattended. The switch MUST
+  be named so that its destructive effect is obvious from the command line alone.
+- **FR-004c**: The README MUST document the container tooling's own
+  down-with-volumes command as the way to discard the container and its storage, so that
+  the full teardown is available without the script owning a second implementation of
+  it.
 - **FR-005**: The command MUST wait for the database to accept connections before
   applying the schema, and MUST fail with a clear message if readiness is not reached
   within a bounded time.
@@ -201,14 +245,26 @@ and without a token and compare the responses.
 - **FR-016**: Seeded activity MUST be unevenly distributed across clients — a few large
   clients and a long tail of small ones.
 - **FR-017**: A meaningful minority of seeded entries MUST be non-billable.
-- **FR-018**: Every seeded entry MUST satisfy the duration and date rules the
-  application will later enforce, so that the seed could have been produced through the
-  API.
+- **FR-018**: Every seeded entry MUST satisfy the duration rules — positive, a multiple
+  of six minutes, not exceeding 1440 — and MUST NOT be dated after the seed's reference
+  date.
+- **FR-018a**: Seeded entries are EXEMPT from the 90-day backdating limit. That limit is
+  a period-close rule constraining what may be *submitted* through the API; it is not an
+  invariant on history already recorded, and it MUST NOT be enforced as a schema
+  constraint. The seed therefore spans the full 24 months, and the vast majority of
+  seeded entries are older than 90 days by design.
 - **FR-019**: Seeding MUST be reproducible: the same inputs MUST produce the same
   dataset, so that performance measurements taken before and after an index change are
   comparable.
 - **FR-020**: Seeding MUST complete in well under a minute on a developer machine once
   the database is running.
+- **FR-020a**: Roughly 10–15% of seeded clients, matters and timekeepers MUST be
+  inactive, so that the rule requiring an active matter of an active client has a
+  realistic fixture to be tested against rather than one fabricated per test.
+- **FR-020b**: Inactive clients, matters and timekeepers MUST retain their historical
+  time entries. Deactivation is forward-looking: it prevents new entries being recorded
+  against them and MUST NOT remove, hide or invalidate entries recorded while they were
+  active.
 
 **Access boundary**
 
@@ -216,9 +272,24 @@ and without a token and compare the responses.
   credentials. Every other route MUST require a valid bearer token.
 - **FR-022**: An absent, malformed, expired or wrongly-signed token MUST produce a 401
   and disclose nothing about the resource.
+- **FR-022a**: The bootstrap script MUST print a usable development token at the end of
+  a successful run, and the README MUST show how to supply it when calling a protected
+  route. No endpoint that issues tokens may be added — the endpoint count in
+  `docs/prd.md` §4 stays at seventeen.
+- **FR-022b**: The printed token MUST carry an expiry long enough to survive an
+  evaluation session without being reissued, and MUST be valid only against the
+  development signing key. It MUST NOT be committed to the repository.
 - **FR-023**: The health endpoint MUST report both that the service is running and
   whether the database is reachable, and MUST report failure rather than success when
   the database is unreachable.
+- **FR-023a**: The health response MUST use status code 200 when every check passes and
+  503 when any check fails. A degraded system MUST NOT return 200 under any
+  circumstance.
+- **FR-023b**: Both responses MUST carry a JSON body listing each check by name with its
+  individual status and how long it took, so that a caller can identify which component
+  failed without access to logs.
+- **FR-023c**: The database check MUST verify that a query can actually be executed, not
+  merely that a connection object was constructed.
 
 **Documentation**
 
@@ -252,18 +323,28 @@ and without a token and compare the responses.
 - **SC-003**: Running the bootstrap twice in a row produces identical row counts, and
   the second run reports that it skipped work rather than repeating it.
 - **SC-004**: The health check correctly reports failure within 5 seconds of the
-  database becoming unreachable, and success within 5 seconds of it returning.
+  database becoming unreachable, and success within 5 seconds of it returning. In the
+  failure case the response names the database check specifically — a reader can tell
+  which component failed from the response alone.
 - **SC-005**: Weekend entries are under 10% of all entries; the ten busiest clients
   account for at least half of all logged minutes; non-billable entries are between 10%
   and 25% of the total.
-- **SC-006**: 100% of seeded entries satisfy the duration increment, duration magnitude
-  and date-window rules — zero exceptions across all 400,000 rows.
+- **SC-006**: 100% of seeded entries satisfy the duration increment and duration
+  magnitude rules and carry a date no later than the reference date — zero exceptions
+  across all 400,000 rows. Entries older than 90 days are expected, not counted as
+  violations.
 - **SC-007**: Two seed runs from the same inputs produce datasets that are identical row
   for row.
 - **SC-008**: Every route other than the health check and the documentation returns 401
   without a valid token; 0 routes are unintentionally public.
 - **SC-009**: Each documented failure mode produces a message that names its cause, as
   judged by someone who has not read the script.
+- **SC-010**: Between 10% and 15% of seeded clients, of matters and of timekeepers are
+  inactive, and at least one inactive client, one inactive matter and one inactive
+  timekeeper each have historical time entries against them.
+- **SC-011**: A reviewer can call a protected route successfully using only the token
+  printed by the bootstrap script, without editing configuration or generating anything
+  themselves.
 
 ## Assumptions
 
@@ -272,16 +353,17 @@ existed. Any of these can be overturned in `/speckit-clarify` before planning.
 
 - **Idempotency means skip, not rebuild.** A second run detects a complete environment
   and leaves it alone, reporting what it skipped. Destroying and rebuilding is available
-  behind an explicit reset option (FR-004). Reseeding 400,000 rows by default would
-  punish the common case, and silently discarding data is the more dangerous of the two
-  possible readings.
+  behind an explicit reset option (FR-004, FR-004a). Reseeding 400,000 rows by default
+  would punish the common case, and silently discarding data is the more dangerous of
+  the two possible readings.
 - **Seeding is deterministic** (FR-019). The generator uses a fixed starting seed rather
   than machine entropy. Constitution P8 requires index before/after numbers to be
   measured and comparable; a dataset that differs between runs makes the comparison
   meaningless.
 - **Seed dates are anchored to a fixed reference date**, not to the time the seed runs.
-  A 24-month window relative to "now" would drift, breaking reproducibility and
-  eventually pushing entries outside the date window the application will enforce.
+  A 24-month window relative to "now" would drift, breaking reproducibility and making
+  the index measurement incomparable between runs. The 24-month span extends backwards
+  from that anchor; see FR-018a for why that is permitted.
 - **The technology stack is a given, not a decision of this spec.** The container image,
   the ORM, the migration mechanism, the script language and the SDK version are fixed by
   `docs/prd.md` §2.1 and constitution P4, P5 and P7. This spec states behaviour and
@@ -291,15 +373,18 @@ existed. Any of these can be overturned in `/speckit-clarify` before planning.
   requirement.
 - **Timekeepers are seeded and read-only.** No registration or user management exists in
   this feature or in the project (`docs/prd.md` §2.2).
-- **Token issuance is out of scope.** The service validates tokens against a symmetric
-  development key (`docs/prd.md` §2.2); how a reviewer obtains a token for manual
-  testing is a documentation concern for the feature that adds the first protected
-  endpoint.
+- **Token issuance stays out of the API surface.** The service only validates tokens,
+  against a symmetric development key (`docs/prd.md` §2.2). The bootstrap script mints
+  one for manual use (FR-022a); nothing in the running service issues tokens, and no
+  identity provider, registration or password flow exists anywhere in the project.
 
 ## Dependencies
 
 - **Blocks**: feature 002 (the weekly rollup) requires the seeded dataset and the
-  baseline index state defined in FR-013.
+  baseline index state defined in FR-013. Because of FR-020b, that feature MUST state
+  explicitly whether the rollup includes clients that are now inactive but had billable
+  activity in the reported period; the seed guarantees such clients exist, so the
+  question cannot be left to be discovered.
 - **Blocked by**: nothing. This is the first implementation feature.
 - **External**: container tooling and the pinned SDK must be present on the machine.
   Neither is installed by this feature.

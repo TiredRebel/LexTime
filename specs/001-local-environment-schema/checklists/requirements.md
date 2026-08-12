@@ -55,19 +55,41 @@ Two iterations were run.
 
 **Iteration 2 — all items pass.**
 
-### Clarifications not raised
+### Clarifications not raised at authoring time
 
 Two ambiguities were resolved by informed default rather than by a `[NEEDS
-CLARIFICATION]` marker, because a defensible default existed in each case. Both are
-recorded in the spec's Assumptions section and are the first things to revisit in
-`/speckit-clarify`:
+CLARIFICATION]` marker, because a defensible default existed in each case. Both survived
+the `/speckit-clarify` session unchanged and remain recorded in the spec's Assumptions
+section:
 
 - **What "idempotent" means for seeded data** — resolved as skip-and-report, with reset
   behind an explicit option. The alternative reading (rebuild every run) would discard
-  data by default, which is the more dangerous of the two.
+  data by default, which is the more dangerous of the two. Session Q5 refined the scope
+  of that reset rather than overturning it.
 - **Whether seeding is deterministic** — resolved as deterministic with a fixed seed and
   a fixed date anchor. Constitution P8 requires the index before/after measurement to be
   comparable, which a varying dataset would prevent.
+
+### `/speckit-clarify` session, 2026-08-12
+
+Five questions asked and answered; all five integrated. One resolved a genuine
+contradiction in the authored spec:
+
+- **Q1 — seeded history vs the 90-day backdating rule.** FR-018 as written required every
+  seeded entry to satisfy a rule forbidding dates more than 90 days old, while FR-014
+  required a 24-month span. Roughly seven eighths of the dataset would have violated the
+  spec. Resolved by separating creation-time rules from stored-data invariants: FR-018
+  narrowed to duration, FR-018a added to state the exemption. This was a defect in the
+  spec, not an ambiguity in the request.
+- **Q2 — inactive rows in the seed.** FR-020a, FR-020b, SC-010 added. Also propagated
+  forward: the Dependencies section now requires feature 002 to state whether the rollup
+  includes clients that are inactive now but billed during the reported period.
+- **Q3 — health response contract.** FR-023a/b/c added; SC-004 and User Story 1's fourth
+  scenario tightened to require the failing check be named in the response.
+- **Q4 — reviewer token acquisition.** FR-022a/b and SC-011 added. Previously deferred to
+  a later feature, which left this spec's own User Story 4 unverifiable by hand.
+- **Q5 — reset scope.** FR-004a/b/c added. Reset drops the database only; full teardown
+  is delegated to the container tooling's existing command rather than reimplemented.
 
 ### Constitution alignment
 
