@@ -19,21 +19,17 @@ enough to power a dashboard, without dragging the write path down.
 
 This repository demonstrates that path end to end in .NET and SQL Server.
 
-### Why this repo exists (the meta-problem)
+### Why this repo exists
 
-The author has 15+ years of .NET/C# and shipped in product organisations
-(Microsoft Dynamics 365 R&D, Intel, CoreLogic), but spent the last year on
-Python data pipelines. A reviewer's fair question is "are you still current?"
-This repository answers it with a small, real, runnable artifact rather than a
-paragraph in a cover letter, and it targets exactly the stack in the job
-description: .NET/C#, REST API, SQL Server, stored procedures, PowerShell,
-Azure DevOps.
+A small, real, runnable artifact demonstrates working knowledge of a stack more
+directly than a paragraph in a cover letter. This one targets .NET/C#, REST API,
+SQL Server, stored procedures, PowerShell and Azure DevOps.
 
 ### Reviewer questions the repo must answer
 
 | Question | Where it is answered |
 | --- | --- |
-| Can they still write idiomatic modern .NET? | `src/LexTime.Api` — .NET 9 minimal API, typed results, DI, validation |
+| Can they write idiomatic modern .NET? | `src/LexTime.Api` — .NET 9 minimal API, typed results, DI, validation |
 | Do they structure a solution deliberately? | Clean architecture across four projects, dependency direction enforced by project references, no framework doing the structuring for them — §5 |
 | Do they know SQL beyond `SELECT *`? | `usp_WeeklyBillableRollup` — window functions, execution plans, index tuning with real numbers |
 | Do they know when *not* to use the ORM? | EF Core for CRUD, raw ADO.NET / `SqlCommand` for reporting; rationale documented |
