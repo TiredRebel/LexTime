@@ -22,10 +22,82 @@ Removed sections:
     filled with invented content. Their intended subject matter (technology constraints,
     development workflow) is already covered by Articles II–VI.
 
+Deferred items: none
+
+--------------------------------------------------------------------------------
+
+Version change: 1.0.0 → 1.1.0
+Rationale: MINOR. Four principles added, none removed, none reversed.
+
+Added principles:
+  - P21 (Article II) Composition roots are extension methods
+  - P22 (Article V)  Every feature starts on its own branch
+  - P23 (Article VII) The quality gate is reproducible by the reviewer
+  - P24 (Article VII) Security review precedes every commit touching auth or SQL
+
+Added sections:
+  - Core Principles → VII. Code quality and security
+
+Modified principles: none. P4 was reviewed against a proposal to adopt full clean-
+architecture layering and left unchanged; that proposal was later adopted in the
+v2.0.0 entry below, minus its library dependencies.
+
+Removed sections: none
+
+Resolved from v1.0.0:
+  - TODO(PRD_LOCATION) — docs/prd.md is now committed at the path P2 and P19 name.
+
 Deferred items:
-  - TODO(PRD_LOCATION): P2 and P19 bind this constitution to docs/prd.md, which is not yet
-    committed to this repository. Land the PRD at that exact path before the first /plan run,
-    or the Constitution Check has nothing to check P2 against.
+  - Directory.Build.props and .editorconfig are named by P23 but not yet created; they
+    land with the solution scaffold in evening 1, per P14 (no implementation before spec).
+
+--------------------------------------------------------------------------------
+
+Version change: 1.1.0 → 2.0.0
+Rationale: MAJOR. P4 is redefined and its former prohibitions are reversed.
+
+Modified principles:
+  - P4 "Three projects. No more." → "Four projects, layered, with dependencies
+    pointing inward." Reversed: the ban on an Application layer is lifted, and the
+    "abstractions only when a second implementation exists" clause is dropped —
+    Application-declared interfaces with one Infrastructure implementation are now
+    the expected shape. Use cases become handler classes and DTO mapping becomes
+    ToDto() extension methods. The bans on MediatR, on AutoMapper and on a generic
+    repository over DbSet<T> are NOT lifted and remain in force; the libraries were
+    proposed with the layering and dropped before this amendment was committed
+    (see PRD §2.2).
+  - P5 clarified (no semantic change): the reporting handler depends on an interface;
+    the SqlCommand implementation is the only place raw ADO.NET appears.
+  - P21 extended: one DI registration extension method per layer.
+
+Added principles:
+  - P25 (Article VI) Everything is documented in XML doc comments, enforced by
+    GenerateDocumentationFile + CS1591 + --warnaserror. Its consequence for PRD §2.2:
+    the StyleCop row's stated reason was inverted — mandatory doc comments are now
+    wanted, so StyleCop is rejected as redundant to CS1591 rather than as noise.
+
+Removed principles: none
+
+Consequences accepted with this amendment:
+  - P3 is the principle most strained, and was retitled "Fits in three evenings" →
+    "One evening per spec" in this amendment. Its rule is unchanged — it always
+    capped a single spec, never the project — but the old title contradicted the
+    PRD §7 budget once that moved to four evenings. If the scaffold overruns, P3
+    governs and scope is cut, not P4.
+  - No new third-party runtime dependency is introduced by this amendment. MediatR
+    and AutoMapper were part of the original proposal and were dropped once their
+    licensing was checked: both moved to a paid licence above a revenue threshold
+    (MediatR from v13.0.0, AutoMapper from v15.0.0) and MediatR v13+ requires a
+    registered licence key at runtime, which would have added a signup step to the
+    P18 quickstart. Recorded in PRD §2.2.
+
+Amendment-clause note: v1.1.0 and v2.0.0 land in a single commit. v1.1.0 was written
+but never committed before v2.0.0 was requested, so there is no v1.1.0 commit to
+separate them into. Stated here rather than implying the "dedicated commit" rule was
+satisfied for both.
+  - PRD §2.2 previously listed this layering as out of scope. That row is removed, and
+    §5's "three projects, not seven" paragraph is rewritten. P2 binds to the PRD as it
+    now stands.
 -->
 
 # LexTime Constitution
@@ -54,25 +126,43 @@ task may introduce any of it. If a feature seems necessary, the correct move is
 to amend the PRD in a separate, visible commit — not to slip it into an
 implementation task.
 
-**P3. Fits in three evenings. (MUST)**
+**P3. One evening per spec. (MUST)**
 Any single spec whose plan exceeds roughly one evening of implementation is
-too big and must be split or trimmed before `/tasks` runs.
+too big and must be split or trimmed before `/tasks` runs. The cap is per spec,
+not per project; the project's own budget lives in PRD §7 and is currently four
+evenings. When the two collide — a spec that will not fit without abandoning a
+design rule — the spec is cut, never the rule.
 
 ### II. Architecture
 
-**P4. Three projects. No more. (MUST)**
-`LexTime.Api`, `LexTime.Domain`, `LexTime.Infrastructure`, plus one test
-project. No `Application` layer, no MediatR, no CQRS split, no generic
-repository over `DbSet<T>`, no AutoMapper. Abstractions are introduced only
-when a second concrete implementation actually exists in the repository.
-*Rationale: ceremony disproportionate to a 400-line domain reads as
-inexperience, not rigour.*
+**P4. Four projects, layered, with dependencies pointing inward. (MUST)**
+`LexTime.Api`, `LexTime.Application`, `LexTime.Domain`,
+`LexTime.Infrastructure`, plus one test project. The dependency rule is the
+gate: `Api` → `Application` → `Domain`, and `Infrastructure` → `Domain`.
+`LexTime.Domain` references no other project and no persistence, HTTP or
+mapping package. Where `Application` needs infrastructure it declares the
+interface and `Infrastructure` implements it — an interface with a single
+implementation is expected here rather than deferred.
+
+Every use case is one handler class in `LexTime.Application`, registered in DI
+and injected where it is used. Entity-to-DTO translation is a `ToDto()`
+extension method next to the DTO it produces. No mediator library and no
+mapping library: the endpoint is the only caller each handler will ever have,
+and mapping six DTOs by hand is checked at compile time rather than at runtime.
+An `Api` endpoint validates its input, invokes the handler, and maps the result
+to a status code — it holds no business logic and touches no `DbContext`.
+*Rationale: the layering is itself part of the signal this repository sends. A
+reviewer looking for clean architecture should find it named and enforced by
+project references, not inferred from a folder structure.*
 
 **P5. Right tool per access path. (MUST)**
 EF Core owns writes and simple entity reads. Reporting reads go through stored
 procedures invoked directly with `SqlCommand`/`SqlDataReader` — never through
 `FromSqlRaw`, never mapped onto EF entities. The boundary between the two lives
-in `LexTime.Infrastructure` and is explicit in the code, not incidental.
+in `LexTime.Infrastructure` and is explicit in the code, not incidental: the
+reporting handler in `LexTime.Application` depends on an interface, and the
+`SqlCommand`/`SqlDataReader` implementation of that interface is the only place
+raw ADO.NET appears.
 *Rationale: this split is the technical argument the repository exists to make;
 blurring it erases the point.*
 
@@ -85,6 +175,16 @@ enforced in the schema. Duplication here is intentional defence in depth.
 Each lives in one file under `db/programmability/`, is written
 `CREATE OR ALTER PROCEDURE`, is applied by `Initialize-LocalDb.ps1`, and is
 never created by an EF migration.
+
+**P21. Composition roots are extension methods. (MUST)**
+Endpoint registration and service registration are exposed as extension methods
+— `app.MapClientEndpoints()`, `services.AddLexTimeApplication()`,
+`services.AddLexTimeInfrastructure()`, one registration method per layer — so
+`Program.cs` reads as a table of contents rather than a two-hundred-line wall.
+This is the only mandated use of extension methods; adding them elsewhere to
+look idiomatic is churn and is not required by this principle.
+*Rationale: `Program.cs` is the first file a reviewer opens; it should be
+scannable in thirty seconds.*
 
 ### III. Data and performance
 
@@ -152,6 +252,15 @@ Spec, plan and implementation land in separate commits so the spec-driven
 workflow is legible to someone reading the log rather than only asserted in the
 README.
 
+**P22. Every feature starts on its own branch. (MUST)**
+Before the first implementation task of a spec is started, create a branch — or
+a `git worktree` — named for that spec. The separate spec, plan and
+implementation commits required by P17 land on that branch and reach `main` as a
+single merge. Governance commits — constitution amendments, PRD edits, README
+and documentation fixes that belong to no spec — may be made on `main` directly.
+*Rationale: P17 claims the history shows the process; one branch per spec is
+what makes that claim legible instead of a flat list of commits.*
+
 ### VI. Documentation
 
 **P18. The quickstart is two commands and it works from cold. (MUST)**
@@ -166,6 +275,57 @@ shortcuts read as oversights; stated ones read as judgement.
 **P20. English is the repository language. (MUST)**
 README, code comments, commit messages, specs and wiki pages, all in English.
 
+**P25. Everything is documented in XML doc comments. (MUST)**
+Every type, method, property, parameter, return value and thrown exception
+carries an XML documentation comment: `<summary>` on the member, `<param>` on
+each parameter, `<returns>` where something is returned, `<exception>` where one
+is thrown by contract. Private and internal members are documented to the same
+standard as public ones. Every project states its purpose in a `<Description>`
+element in its `.csproj`, which is what "module level" means in a solution with
+no modules.
+
+Enforcement is the compiler, not a convention:
+`<GenerateDocumentationFile>true</GenerateDocumentationFile>` in
+`Directory.Build.props` turns on CS1591 for every undocumented publicly visible
+member, and the pipeline's `--warnaserror` (P23) turns that into a build
+failure. CS1591 only sees public surface; the same standard applies below it and
+is a review item rather than a build item.
+
+A comment that restates its signature is a defect, not compliance.
+`/// <summary>Gets the client id.</summary>` on `ClientId` adds nothing and will
+be rejected in review the same as a missing comment. Say why the member exists,
+what the caller is responsible for, what the units are, or what happens at the
+boundaries — the six-minute increment rule, the 90-day window, the rate
+snapshot. Where there is genuinely nothing to add beyond the name, that is a
+signal the member is well named and the summary should state its contract in one
+short clause rather than padding.
+*Rationale: the reviewer in P1 reads this repository without being able to ask
+questions. Documentation is the only channel available, and filler comments
+consume that channel without using it.*
+
+### VII. Code quality and security
+
+**P23. The quality gate is reproducible by the reviewer. (MUST)**
+Code quality is enforced by the .NET SDK's built-in Roslyn analyzers, configured
+in one root `Directory.Build.props` and one root `.editorconfig`. No commercial
+tool and no third-party analyzer package. Any quality claim the README makes
+must be reproducible by `dotnet build` on the reviewer's own machine. The
+pipeline builds with `--warnaserror`; local builds do not, so a warning blocks
+the merge without blocking the edit-run loop.
+*Rationale: the same objection P8 raises about performance numbers — a result
+the reviewer cannot regenerate is an assertion, not evidence.*
+
+**P24. Security review precedes every commit touching auth or SQL. (MUST)**
+`AnalysisModeSecurity=All` and `NuGetAudit` run on every build and cover the
+mechanical cases: CA2100 for concatenated SQL, the CA5xxx cryptography rules,
+and vulnerable package references. On top of that, no commit touching JWT
+validation, connection strings, or SQL assembled by string concatenation is
+made without a manual review pass. Findings are fixed, or recorded in
+`docs/agent-log.md` together with the reason they were accepted. P15 governs
+whether generated SQL is *correct*; this principle governs whether it is *safe*.
+*Rationale: the shortcuts PRD §2.3 admits to — symmetric dev key, no secret
+management — only read as judgement if someone actually looked.*
+
 ## Governance
 
 **Precedence.** This constitution outranks the PRD on process questions and
@@ -179,11 +339,15 @@ a violation in Complexity Tracking is only valid for **SHOULD** principles.
 **Amendment.** Amendments are made by editing this file in a dedicated commit
 that states the reason. Version increments follow semver: MAJOR for removing or
 reversing a principle, MINOR for adding one or materially expanding one, PATCH
-for wording. `Last amended` is updated on every change.
+for wording. `Last amended` is updated on every change. Principle numbers are
+permanent identifiers assigned in amendment order: a new principle takes the
+next free number and is filed under the article it belongs to, so numbering runs
+in order of age rather than in order of appearance. Numbers are never reused and
+never renumbered, so a reference to P4 means the same thing in every commit.
 
 **Compliance review.** Before the repository is declared done, re-read this
 document against the finished code once, end to end. Anything that drifted is
 either fixed or the principle is honestly amended — never left silently
 violated.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-12 | **Last Amended**: 2026-08-12
+**Version**: 2.0.0 | **Ratified**: 2026-08-12 | **Last Amended**: 2026-08-12
