@@ -3,7 +3,8 @@
 **Status:** Draft v1.0
 **Owner:** Dmytro
 **Type:** Portfolio / interview demo repository — not a product
-**Budget:** 2–3 evenings (~12–15 focused hours)
+**Budget:** 3–4 evenings (~16–20 focused hours) — raised from 2–3 when
+constitution v2.0.0 added the Application layer; see §7
 
 ---
 
@@ -33,6 +34,7 @@ Azure DevOps.
 | Question | Where it is answered |
 | --- | --- |
 | Can they still write idiomatic modern .NET? | `src/LexTime.Api` — .NET 9 minimal API, typed results, DI, validation |
+| Do they structure a solution deliberately? | Clean architecture across four projects, dependency direction enforced by project references, no framework doing the structuring for them — §5 |
 | Do they know SQL beyond `SELECT *`? | `usp_WeeklyBillableRollup` — window functions, execution plans, index tuning with real numbers |
 | Do they know when *not* to use the ORM? | EF Core for CRUD, raw ADO.NET / `SqlCommand` for reporting; rationale documented |
 | Can they test against a real database? | Testcontainers integration tests against real SQL Server 2022 |
@@ -76,12 +78,24 @@ Azure DevOps.
 
 **Infrastructure**
 
+- .NET SDK pinned to **9.0.317** via `global.json` with
+  `"rollForward": "latestFeature"`. Pinned because the authoring machine also has
+  10.0.302 installed and would otherwise pick it silently; `latestFeature` rather
+  than `disable` so a reviewer on any 9.0.x still satisfies the §6 cold start.
 - SQL Server 2022 in Docker Compose
 - EF Core 9 code-first migrations for tables; stored procedures kept as
   idempotent `.sql` files applied by the bootstrap script
 - PowerShell script that brings up the container, applies migrations, applies
   stored procedures, and seeds a realistic dataset
 - xUnit integration tests on Testcontainers against real SQL Server
+- Code quality enforced by the SDK's built-in Roslyn analyzers — no third-party
+  package and no commercial tool. One root `Directory.Build.props` sets
+  `AnalysisMode=Recommended`, `AnalysisModeSecurity=All`,
+  `EnforceCodeStyleInBuild=true`, `Nullable=enable`, `NuGetAudit=true` and
+  `GenerateDocumentationFile=true`; one root `.editorconfig` tunes individual
+  rule severities. The pipeline builds with `--warnaserror`; local builds do not.
+  `GenerateDocumentationFile` turns on CS1591, which is what makes constitution
+  P25 a build failure rather than a convention.
 - `azure-pipelines.yml`: restore/build → test → publish artifact
 
 **Documentation**
@@ -113,6 +127,11 @@ Listed here so the reviewer sees the boundary was chosen, not missed.
 | OData | On the author's résumé, but it adds a whole query surface with no reporting story; noted in the README as a deliberate trade |
 | More than one report | The pattern is proven once; repeating it is padding |
 | Load/perf test harness (k6, NBomber) | The index before/after numbers carry the performance story |
+| NDepend or any commercial quality tool | A reviewer cannot run it, so the report is an assertion rather than something reproducible — the same objection §6.6 makes about invented performance numbers. The SDK's built-in analyzers give a gate that runs in anyone's `dotnet build` |
+| StyleCop.Analyzers | Considered as the free alternative to NDepend. Mandatory doc comments — its SA1600 rule — are now wanted (constitution P25), but the compiler already provides them: `GenerateDocumentationFile` turns on CS1591 for the same purpose with no package reference. What StyleCop would add beyond that is member ordering and using-directive placement, which the built-in code-style rules already cover. Rejected as redundant, not as noise |
+| Generic repository over `DbSet<T>` | EF Core's `DbSet<T>` is already the repository and `DbContext` is already the unit of work; wrapping them adds a layer that only forwards calls |
+| MediatR | Proposed with the layering, then dropped. Commercial licence from v13.0.0 (last Apache-2.0 release: v12.5.0), and v13+ requires a registered licence key at runtime — a reviewer would need a mediatr.io account before `dotnet run` was quiet, which breaks the two-command quickstart in §6.3. Independently of the licence, each handler has exactly one caller, so there is nothing to mediate. Replaced by handler classes in DI |
+| AutoMapper | Same origin, same decision. Commercial licence from v15.0.0 (last MIT release: v14.x). Six DTOs mapped by `ToDto()` extension methods are checked at compile time; AutoMapper's failure mode is a runtime exception on a renamed property |
 
 ### 2.3 Non-goals of *quality*, stated honestly
 
@@ -121,6 +140,18 @@ rollback plan, no secret management beyond `appsettings.Development.json` and
 pipeline variables, and test coverage concentrated on the reporting path and
 domain rules rather than uniform across the codebase. The README says so
 out loud rather than pretending otherwise.
+
+Two more, named here so they are trade-offs rather than discoveries:
+
+- **The layering costs more than it saves at this size.** Seventeen endpoints,
+  four of which carry real logic, do not need a handler class each. The
+  layering is here because clean architecture is worth showing done properly;
+  that is a presentation decision, and the README states it as one rather than
+  claiming the design fell out of the problem.
+- **Zero third-party runtime dependencies in `Application`.** The layer is
+  project references, handler classes and extension methods. That is a
+  deliberate answer to the licence changes across the .NET ecosystem, and it
+  means the quickstart in §6 needs no account, key or licence file.
 
 ---
 
@@ -217,9 +248,11 @@ Base path `/api/v1`. JSON only. JWT bearer required on everything except
 | `DELETE` | `/api/v1/time-entries/{id}` | Hard delete |
 | `GET` | `/api/v1/reports/weekly-billable-rollup` | **The headline endpoint** — `?from=`, `?to=`, optional `?clientId=`. Calls `dbo.usp_WeeklyBillableRollup` |
 
-Seventeen endpoints. Sixteen are a health check and plain CRUD that Claude Code
-can generate in close to one pass. The engineering attention goes to the last
-one.
+Seventeen endpoints. Sixteen are a health check and plain CRUD. Under the
+layering in §5 each of them costs a handler class and a `ToDto()` extension
+rather than a single minimal-API lambda, so they are generated in bulk but
+reviewed in bulk too — §7 names them as the first thing cut if evening 2
+overruns. The engineering attention goes to the last one.
 
 ### Rollup response shape
 
@@ -256,6 +289,9 @@ one.
 ├─ README.md
 ├─ azure-pipelines.yml
 ├─ docker-compose.yml
+├─ global.json                     # pins the SDK to 9.0.317
+├─ Directory.Build.props           # analyzer settings for every project
+├─ .editorconfig                   # per-rule severities
 ├─ .specify/                      # Spec Kit: constitution, specs, plans, tasks
 ├─ docs/
 │  ├─ prd.md
@@ -268,15 +304,26 @@ one.
 │  └─ programmability/
 │     └─ usp_WeeklyBillableRollup.sql
 ├─ src/
-│  ├─ LexTime.Api/                # endpoints, DTOs, validation, auth
-│  ├─ LexTime.Domain/             # entities + domain rules
+│  ├─ LexTime.Api/                # endpoints, validation, auth, DI composition
+│  ├─ LexTime.Application/        # one handler class per use case, DTOs + ToDto()
+│  │                              # extensions, interfaces implemented by Infrastructure
+│  ├─ LexTime.Domain/             # entities + domain rules, references nothing
 │  └─ LexTime.Infrastructure/     # EF Core DbContext, migrations, sproc client
 └─ tests/
    └─ LexTime.IntegrationTests/   # Testcontainers + xUnit
 ```
 
-Three projects, not seven. Clean-architecture theatre in a 400-line demo is a
-negative signal.
+Four projects, clean architecture, dependencies pointing inward: `Api` →
+`Application` → `Domain`, with `Infrastructure` depending on `Domain` and
+plugged into `Application` through interfaces `Application` declares. Use cases
+are plain handler classes registered in DI; DTO mapping is a `ToDto()`
+extension method beside each DTO. No mediator library, no mapping library — see
+§2.2.
+
+The layering is deliberate signal: it is enforced by project references rather
+than left to be inferred from folder names, so a reviewer can verify the
+dependency direction by opening the `.csproj` files rather than by trusting the
+folder names. Constitution P4 is the binding statement of this rule.
 
 ---
 
@@ -318,17 +365,24 @@ reviewer who has only Docker and the .NET 9 SDK.
 7. `azure-pipelines.yml` defines build → test → publish, uses a Microsoft-hosted
    `ubuntu-latest` pool, publishes test results and a web deploy artifact, and
    is syntactically valid.
+8. The pipeline builds with `--warnaserror`, so any analyzer diagnostic fails
+   the build. A reviewer running `dotnet build` on a clean checkout gets the
+   same diagnostics from the same `Directory.Build.props` and `.editorconfig` —
+   no tool to install, no licence. Because `GenerateDocumentationFile` is on,
+   this includes CS1591: a public member without an XML doc comment fails the
+   build. Comments that merely restate the signature pass the compiler and are
+   caught in review instead (P25).
 
 **Explains itself**
 
-8. `README.md` has a "Built with Claude Code" section naming at least three
+9. `README.md` has a "Built with Claude Code" section naming at least three
    concrete things the agent got wrong (with the actual symptom and how it was
    caught — review, failing test, or plan inspection), not a generic
    "AI-assisted" note.
-9. `CLAUDE.md` and the Spec Kit constitution/specs are committed and were
-   actually used, visible in commit history.
-10. Graphify graph and screenshot committed under `docs/graphify/`.
-11. LLM Wiki pages exist for: EF Core vs. stored procedures for reporting; the
+10. `CLAUDE.md` and the Spec Kit constitution/specs are committed and were
+    actually used, visible in commit history.
+11. Graphify graph and screenshot committed under `docs/graphify/`.
+12. LLM Wiki pages exist for: EF Core vs. stored procedures for reporting; the
     index and plan-shape decision; the Testcontainers testing strategy; the
     spec-driven workflow with Claude Code.
 
@@ -338,13 +392,23 @@ reviewer who has only Docker and the .NET 9 SDK.
 
 | Evening | Work |
 | --- | --- |
-| **1** | Spec Kit `constitution.md` + `/specify` + `/plan`; solution scaffold; EF model + migrations; `docker-compose.yml`; `Initialize-LocalDb.ps1` with `SqlBulkCopy` seeding; CRUD endpoints + JWT + validation |
-| **2** | `usp_WeeklyBillableRollup`; sproc call path; Testcontainers harness + rollup and domain-rule tests; capture plans and `STATISTICS IO/TIME` before and after the index |
-| **3** | `azure-pipelines.yml`; README including the performance and Claude Code sections; Graphify; LLM Wiki pages; final pass |
+| **1** | Spec Kit `constitution.md` + `/specify` + `/plan`; four-project scaffold with `Directory.Build.props`, `.editorconfig`, `global.json`; EF model + migrations; `docker-compose.yml`; `Initialize-LocalDb.ps1` with `SqlBulkCopy` seeding |
+| **2** | Handler classes and `ToDto()` extensions for the CRUD surface; endpoints + JWT + validation; `usp_WeeklyBillableRollup` and its sproc call path behind an `Application` interface |
+| **3** | Testcontainers harness + rollup and domain-rule tests; capture plans and `STATISTICS IO/TIME` before and after the index; `azure-pipelines.yml` |
+| **4** | README including the performance, trade-offs and Claude Code sections; Graphify; LLM Wiki pages; final pass |
 
-If evening 3 runs short, the cut order is: LLM Wiki pages → Graphify →
-README polish. The performance section and the pipeline are not cuttable —
-they are the two things the job description asks for by name.
+The layering added in constitution v2.0.0 pushed this from three evenings to
+four. Constitution P3 caps a single *spec* at roughly one evening, not the
+project, so the split above keeps P3 satisfied — but P3 also governs the tie:
+if the scaffold overruns, scope is cut, the layering is not abandoned
+mid-build.
+
+The generated CRUD handlers are the cut candidate. If evening 2 overruns, the
+sixteen plain endpoints drop to the minimum that exercises each domain rule and
+the rollup keeps its full attention (P10). After that the cut order is: LLM
+Wiki pages → Graphify → README polish. The performance section and the pipeline
+are not cuttable — they are the two things the job description asks for by
+name.
 
 ---
 
