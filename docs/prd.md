@@ -120,7 +120,7 @@ Listed here so the reviewer sees the boundary was chosen, not missed.
 | Soft delete, full audit trail | `CreatedAtUtc`/`UpdatedAtUtc` only |
 | Caching, rate limiting, background jobs | No load to justify them |
 | Kubernetes, Terraform, real Azure deploy | Pipeline stops at `publish`; deploying to a live environment costs money and a weekend |
-| OData | On the author's résumé, but it adds a whole query surface with no reporting story; noted in the README as a deliberate trade |
+| OData | Relevant to the stack, but it adds a whole query surface with no reporting story; noted in the README as a deliberate trade |
 | More than one report | The pattern is proven once; repeating it is padding |
 | Load/perf test harness (k6, NBomber) | The index before/after numbers carry the performance story |
 | NDepend or any commercial quality tool | A reviewer cannot run it, so the report is an assertion rather than something reproducible — the same objection §6.6 makes about invented performance numbers. The SDK's built-in analyzers give a gate that runs in anyone's `dotnet build` |

@@ -194,7 +194,7 @@ judgement.
 | No multi-tenancy | Real concern, but it doubles the data model and every query |
 | Hard deletes, `CreatedAtUtc`/`UpdatedAtUtc` only | A full audit trail is product work, not signal |
 | Pipeline stops at publish | A live Azure environment costs money and a weekend |
-| No OData | On my résumé, but it adds a query surface with no reporting story |
+| No OData | Relevant to the stack, but it adds a query surface with no reporting story |
 | One report, not several | The pattern is proven once; repeating it is padding |
 | No secret management beyond `appsettings.Development.json` | Demo scope, said out loud rather than hidden |
 | Clean-architecture layering at this size | Seventeen endpoints, four with real logic, do not need a handler class each. The layering is here because it is worth showing done properly — a presentation decision, not one the problem forced |
