@@ -264,8 +264,8 @@ confirm each falls within its stated band.
   planning decision, recorded in `research.md`.
 - **Token issuance stays out of the API surface.** The service only validates tokens. The
   script mints one for manual use; nothing in the running service issues tokens.
-- **The reference date is published.** `docs/performance.md` in feature 003 must cite it
-  alongside any measurement, or the numbers are not reproducible by a reader.
+- **The reference date is published.** `docs/performance.md` must cite it alongside any
+  measurement, or the numbers are not reproducible by a reader.
 
 ## Dependencies
 

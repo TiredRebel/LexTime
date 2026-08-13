@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using LexTime.Api.Authentication;
+using LexTime.Api.Endpoints;
 using LexTime.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -14,7 +15,18 @@ namespace LexTime.IntegrationTests;
 [Collection(DatabaseCollection.Name)]
 public sealed class AuthBoundaryTests(SqlServerFixture fixture)
 {
-    private const string ProtectedRoute = "/api/v1/ping";
+    /// <summary>
+    /// A protected route carrying a complete request, so the accepted case reaches real data.
+    /// </summary>
+    /// <remarks>
+    /// Feature 001 pointed these tests at a <c>/api/v1/ping</c> placeholder, which was removed
+    /// when this endpoint landed. Aiming them at the rollup strengthens them: a boundary proven
+    /// only against a route that returns a constant is not proven against one that returns the
+    /// database. The range is arbitrary and need not match any data — an empty report is still
+    /// a 200, which is exactly what the accepted case needs to distinguish from a 401.
+    /// </remarks>
+    private const string ProtectedRoute =
+        ReportEndpoints.WeeklyBillableRollupRoute + "?from=2026-01-05&to=2026-02-01";
 
     /// <summary>The health endpoint is reachable without credentials.</summary>
     /// <returns>A task that completes when the assertion has run.</returns>

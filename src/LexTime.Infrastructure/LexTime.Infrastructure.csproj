@@ -6,6 +6,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LexTime.Domain\LexTime.Domain.csproj" />
+    <!--
+      Added by feature 003. Constitution P4 requires that where Application needs
+      infrastructure it declares the interface and Infrastructure implements it, which cannot
+      happen without Infrastructure seeing that interface. The dependency still points inward:
+      Application is the more central layer and knows nothing of this project. See
+      specs/003-weekly-billable-rollup/plan.md, Constitution Check, P4.
+    -->
+    <ProjectReference Include="..\LexTime.Application\LexTime.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -3,13 +3,15 @@
 A minimal timekeeping API for legal billing — .NET 9, SQL Server 2022, and one
 stored procedure that does the interesting work.
 
-> **Status: feature 001 complete — solution, schema, health and access boundary.**
-> The four projects build clean under `--warnaserror`, the schema and its constraints
-> are applied by migration, and 21 integration tests run against a real SQL Server
-> container. Data seeding and the bootstrap script are feature 002; the rollup is
-> feature 003. Sections below marked `TODO(measure)` are deliberately empty — this
-> repository's constitution forbids publishing performance numbers that were not
-> captured from a real run, so the placeholders stay visibly empty until they are.
+> **Status: features 001–003 complete — solution, schema, seeded data, health,
+> access boundary, and the weekly billable rollup.** The four projects build clean
+> under `--warnaserror`, the two-command quickstart works from cold, 400,000
+> deterministic time entries load in under a minute, and 58 integration tests run
+> against a real SQL Server container. Next is the index and its before/after
+> measurement; the CRUD surface follows. Sections below marked `TODO(measure)` are
+> deliberately empty — this repository's constitution forbids publishing performance
+> numbers that were not captured from a real run, so the placeholders stay visibly
+> empty until they are.
 
 ---
 
@@ -27,35 +29,40 @@ not a product; `docs/prd.md` §2.2 lists what it deliberately does not build.
 ## Quickstart
 
 Requires Docker and the .NET SDK 9.0.317 or a later 9.0.x (pinned in
-`global.json`).
-
-**Today this is three commands, not two.** The script that reduces it to two is
-feature 002, and this section will say two when it exists rather than before.
+`global.json`). Two commands:
 
 ```powershell
-docker compose up -d
-```
-
-```powershell
-dotnet ef database update --project src/LexTime.Infrastructure --startup-project src/LexTime.Api
+pwsh ./scripts/Initialize-LocalDb.ps1
 ```
 
 ```powershell
 dotnet run --project src/LexTime.Api
 ```
 
-That brings up SQL Server 2022, applies the schema, and serves Swagger UI plus a
-`/health` endpoint that reports each check by name. The database is empty:
-seeding ~400,000 time entries arrives with feature 002.
+The first brings up SQL Server 2022, waits for it to accept queries, applies the
+schema and any stored procedures, seeds 400,000 deterministic time entries,
+verifies their distribution, and prints a development bearer token. It is
+idempotent — a second run reports what it skipped and changes nothing. The
+second command serves Swagger UI and a `/health` endpoint that reports each
+check by name; paste the printed token into the authorize box to call a
+protected route.
 
-To discard the container and its data entirely:
+To rebuild the data without restarting the container:
+
+```powershell
+pwsh ./scripts/Initialize-LocalDb.ps1 -Reset
+```
+
+To discard the container and its storage entirely:
 
 ```powershell
 docker compose down -v
 ```
 
-No account, no licence key, no tool to install beyond `dotnet-ef`. If a step
-exists but is not documented here, that is a defect.
+**No account, no licence key, nothing to install.** Migrations are applied by
+the application itself rather than by the `dotnet-ef` global tool, specifically
+so that this list stays at Docker and the SDK. If a step exists but is not
+documented here, that is a defect.
 
 ## Architecture
 
@@ -137,6 +144,47 @@ ORDER BY ...)`, `LAG()` and `DENSE_RANK()`.
 The procedure lives in `db/programmability/`, is written `CREATE OR ALTER`, and
 is applied by the bootstrap script — never by an EF migration.
 
+### Two questions it had to answer out loud
+
+Both are the kind that produce a plausible report either way, so the spec states
+a position and a test pins it.
+
+**A client who is inactive today still appears for the weeks it billed in.**
+Deactivation is forward-looking. A report on a past period describes what was
+billed then, and a client that left last year still has last year's revenue. The
+seed guarantees such clients exist, so the rule is testable rather than
+theoretical.
+
+**"The prior week" means the preceding *calendar* week, not the client's previous
+row.** A client that bills, goes quiet for three weeks, then bills again is
+compared against the silent week immediately before it — so the change is that
+week's hours in full, not the difference against the week it last billed in.
+Rows are still emitted only for weeks with activity; the gap is *detected*, not
+filled with zero rows, because materialising them would return 6,240 rows
+regardless of activity and collapse the ranking into a mass tie at zero.
+
+`null` in `hoursDeltaVsPriorWeek` means the preceding week falls outside the
+requested range. It does not mean zero, and coalescing it to zero misreports the
+first week of every report.
+
+### Weeks are identified by a day count, not a week number
+
+The obvious encoding — `isoYear * 100 + isoWeek` — is wrong every January and
+right the rest of the year. ISO week 1 of 2026 begins on Monday 29 December
+2025, and the week before it is 2025 week 52, so "last week" cannot be found by
+subtracting one from the week number.
+
+The procedure keys on `DATEDIFF(day, '19000101', WorkDate) / 7` instead. 1900-01-01
+was a Monday, so the ordinal increments by exactly one per calendar week across
+year boundaries, and — unlike `DATEPART(weekday, …)` — it does not shift with the
+caller's `SET DATEFIRST`. `LAG()` supplies the candidate previous row and a
+comparison against `ordinal - 1` decides whether that candidate is really last
+week or something older.
+
+A test covers exactly this intersection: a gap spanning New Year, where week-number
+arithmetic reports `+5.00` and the correct answer is `−3.00`. Neither a plain gap
+test nor a plain year-attribution test catches it alone.
+
 ## Performance
 
 The schema ships with only primary and foreign key indexes, on purpose, so the
@@ -164,13 +212,19 @@ xUnit against real SQL Server 2022 via Testcontainers. No in-memory provider,
 no SQLite, no mocked `DbContext` — a test that cannot run against the real
 engine is not testing what this repository claims to be good at.
 
-Coverage is deliberate rather than uniform. Today, 21 tests cover the storage
-constraints, the health contract and the access boundary — asserted against the
-database directly, so that application-layer validation cannot mask a missing
-constraint. Two of them assert that something is **absent**: a three-year-old
-billing date must be accepted, because the 90-day backdating rule governs
-submissions and not stored history, and adding the "obviously missing" date
-constraint would break feature 002's seed silently.
+Coverage is deliberate rather than uniform. Today, 40 tests cover the storage
+constraints, the health contract, the access boundary, the maintenance verbs and
+the seed generator — asserted against the database directly, so that
+application-layer validation cannot mask a missing constraint. Two of them assert
+that something is **absent**: a three-year-old billing date must be accepted,
+because the 90-day backdating rule governs submissions and not stored history,
+and adding the "obviously missing" date constraint would break the seed silently.
+
+The generator's tests run at a hundredth of production scale with **no database
+at all**, because it is a pure function of its options. That is where a
+regression would actually be introduced, and it is what makes asserting
+determinism — two runs producing identical rows — cheap enough to do on every
+build rather than never.
 
 As later features land: every domain rule gets a rejecting and an accepting
 case, and the rollup is asserted against a **hand-computed fixture** — expected

@@ -1,3 +1,0 @@
-# Stored procedures live here as CREATE OR ALTER .sql files (constitution P7).
-# Empty until feature 003. The bootstrap script treats an empty directory as normal.
-

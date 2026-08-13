@@ -166,6 +166,263 @@ was removed and the health check written against the framework's own abstraction
 
 ---
 
+## Feature 002 — bootstrap and seed
+
+### 11. A guard that fired before the handler meant to catch it
+
+**Generated**: a maintenance verb layer mapping configuration failures to exit code 1, per
+its own contract.
+
+**Symptom**: running a verb with no connection string killed the process with an unhandled
+`InvalidOperationException`, a full stack trace, and exit code `-532462766`. The documented
+exit code 1 was unreachable.
+
+**Caught by**: running the verb instead of trusting the `try`/`catch` that surrounded the
+call. Feature 001's configuration guard throws during *service registration*, which happens
+before the host is built and therefore before anything in the verb layer exists to catch
+it.
+
+**Resolution**: the guard moved up to wrap registration, and only for maintenance
+invocations — a misconfigured web server should still fail loudly rather than start quietly.
+
+### 12. Adding a return value silently broke nine tests
+
+**Generated**: `return await MaintenanceCommands.RunAsync(...)` in `Program.cs`, so the verb
+layer's exit code became the process exit code.
+
+**Symptom**: nine tests failed with "The server has not been started or no web application
+was configured". Every one of them was a `WebApplicationFactory` test; none of them touched
+the code that changed.
+
+**Caught by**: the regression check the task list required immediately after modifying
+`Program.cs`, for exactly this reason.
+
+**Resolution**: two separate causes, found in order. A `return <int>` anywhere in top-level
+statements makes the generated `Main` return `Task<int>`, which the factory's entry-point
+interception does not support — replaced with `Environment.ExitCode`. That alone did not fix
+it: the gate was `args.Length > 0`, and **the test host passes arguments of its own**, so
+every test was being treated as a maintenance invocation and exiting before the server
+started. The gate is now "the first argument is a verb this class owns", which is what it
+should have said in the first place.
+
+### 13. A shell preference turned a success into a misleading failure
+
+**Generated**: a bootstrap script with `$ErrorActionPreference = 'Stop'` and native commands
+invoked as `& docker ... 2>&1`.
+
+**Symptom**: `FAILED: Docker is not responding` — while Docker was running and serving
+containers.
+
+**Caught by**: not believing the message. `docker ps` from the same shell exited 0 and
+listed the running container.
+
+**Resolution**: with `Stop` in effect, redirecting a native command's stderr through `2>&1`
+turns *any* stderr line into a terminating error, even when the command succeeded. Every
+external call now goes through one helper that drops to `Continue` for the duration and
+returns the exit code explicitly. The failure this caused is precisely the one FR-011 exists
+to prevent: a message that names the wrong cause.
+
+A second, smaller instance in the same area: the prerequisite check originally used
+`docker version`, which can print a client version and exit 0 while the daemon is
+unreachable. It answers a different question than the one being asked, so the check now uses
+`docker ps`.
+
+### 14. A regex replacement inlined the entire file into itself
+
+**Generated**: a PowerShell `-replace` whose replacement text contained `$_`, intended as
+part of a `Where-Object` block being written into the script.
+
+**Symptom**: the script file roughly doubled in size and the second half of it appeared
+partway through a line of the first.
+
+**Caught by**: reading the diff. In .NET replacement syntax `$_` is a substitution meaning
+**the entire input string**, so the whole file was inserted at that point.
+
+**Resolution**: file rewritten wholesale rather than patched. Worth recording because the
+mistake is invisible in the pattern — the replacement text looked like ordinary PowerShell.
+
+### 15. The analyzers objected to the one thing that had to be true
+
+**Generated**: a deterministic data generator built on `System.Random`.
+
+**Symptom**: `CA5394: Random is an insecure random number generator`, six times, failing the
+build under `AnalysisModeSecurity=All`.
+
+**Caught by**: the build gate, immediately.
+
+**Resolution**: the diagnostic is correct in general and inverted here — the requirement is
+that two runs produce *identical* rows, which a cryptographic generator cannot do by
+design. Suppressed at the class with a justification naming FR-020, and reviewed as a P24
+item below. This is worth recording because "fix the analyzer warning" would have quietly
+destroyed the property the index before/after measurement depends on.
+
+---
+
+## Feature 003 — weekly billable rollup
+
+### 16. A contract fixed in one place and drifted from in another
+
+**Generated**: the procedure's final `SELECT`, returning `DENSE_RANK() OVER (...)` directly as
+`ClientRankInWeek`.
+
+**Symptom**: every one of the eleven tests that read a row failed with
+`System.InvalidCastException: Unable to cast object of type 'System.Int64' to type
+'System.Int32'`, thrown from `SqlDataReader.GetInt32`. Nothing named the column, and the stack
+pointed only at the reader's mapping loop.
+
+**Cause**: SQL Server's ranking functions — `ROW_NUMBER`, `RANK`, `DENSE_RANK`, `NTILE` — all
+return `bigint`. The result-set contract says `int`, and a standing among sixty clients has no
+use for the other thirty-two bits.
+
+**Caught by**: the tests, immediately and loudly. Worth recording for *why* it was possible:
+the feature deliberately shipped the procedure first as a typed empty shell, precisely so the
+twelve-column contract was fixed before anything bound to it. The shell declared
+`CAST(0 AS int)` and was right. The implementation that replaced it then drifted from the
+contract the shell existed to establish — so the technique worked exactly as intended and the
+mistake happened one layer above it.
+
+**Resolution**: `CAST(... AS int)` on the rank, with a comment saying why the cast is there
+rather than leaving a future reader to wonder.
+
+### 17. Two findings from reading the SQL that no test would have produced
+
+Constitution P15 requires generated SQL involving window functions to be read line by line
+rather than accepted on a green run. It had just gone green on all fifty-eight tests. The read
+found two things anyway, neither of which any test could fail on:
+
+- **A cast that implied a subtlety that did not exist.** The `DENSE_RANK` ordered by
+  `CAST(BillableMinutes AS decimal(18,4)) DESC`. Ranking by the integer is identical — the
+  conversion is monotonic — so the cast bought nothing and suggested to a reader that something
+  about the decimal form mattered. Removed.
+- **An unstated ceiling.** The amount is summed as minutes-times-money and narrowed to
+  `decimal(19,4)`, which holds about 10^15. That is roughly ten thousand times the seeded
+  maximum, so no test will ever reach it — but it is a real ceiling and a widening is not free,
+  because `decimal(38,x)` divided by a literal runs into SQL Server's precision rules and loses
+  scale rather than erroring. Now stated in the procedure.
+
+Neither is a bug. Both are the kind of thing that only turns up when someone reads the code
+with the question "what is this actually claiming?", which is the whole argument for P15.
+
+### 18. A principle that mandates an edge its own diagram omits
+
+**Observed**: constitution P4 states the dependency rule as `Api → Application → Domain`, and
+`Infrastructure → Domain`. It then requires, in the same paragraph, that "where `Application`
+needs infrastructure it declares the interface and `Infrastructure` implements it".
+
+**Symptom**: the second requirement cannot be satisfied while the first list is exhaustive.
+`SqlWeeklyBillableRollupReader` implements `IWeeklyBillableRollupReader`, which lives in
+`LexTime.Application`, so `LexTime.Infrastructure` must reference it — an edge P4's list does
+not name.
+
+**Caught by**: the compiler, on the first build of the reader. Recorded because the interesting
+part is not the error but what it exposes: the Constitution Check at `/plan` passed this
+feature on P4 without anyone noticing the tension, because the prose was read as governing and
+the arrow list as illustrative. A gate that is checked by reading can be passed by reading it
+the convenient way.
+
+**Resolution taken**: the reference was added, with a comment in the `.csproj` pointing at the
+plan. The dependency still points inward — `Application` is the more central layer and knows
+nothing of `Infrastructure` — which is the rule P4's title states. **The arrow list should be
+amended to name the edge** so the document matches the design it mandates; that is a governance
+commit, not something to slip into a feature.
+
+---
+
+## The build gate caught a vulnerability nobody in this repository introduced
+
+**Date**: 2026-08-13, while specifying feature 003. Not an agent mistake — recorded because
+it is the clearest evidence that the P23/P24 gate does something, and it arrived without
+anyone touching the code.
+
+**Symptom**: a build that had been green the previous evening failed with
+`NU1903: Package 'SSH.NET' 2025.1.0 has a known high severity vulnerability`. No source file
+had changed. GitHub advisory GHSA-q939-rpr3-3284 had been published in the interval, and
+`NuGetAudit` with `NuGetAuditMode=all` re-evaluates the whole transitive graph on every
+build rather than only direct references.
+
+**Cause**: `Testcontainers.MsSql 4.13.0` → `Docker.DotNet.Enhanced 4.3.3` → `SSH.NET`.
+Three levels down, in a test-only dependency, on a code path this project never executes —
+SSH.NET is how Testcontainers reaches a Docker daemon over SSH, and this project uses a
+local one.
+
+**Resolution**: 4.13.0 is the latest Testcontainers release, so there was no upstream fix to
+take. Pinned SSH.NET to 2026.0.0 as a direct reference in the test project, which lifts the
+transitive resolution out of the vulnerable range; audit went quiet, which is the advisory
+database confirming the version is patched rather than an inference. Verified the pin does
+not break the thing it sits underneath: `dotnet test` still passes 40 of 40 against real
+containers. The reference carries a comment saying to delete it once Testcontainers ships
+the patched version itself, so it does not calcify into a mystery.
+
+**Worth noting**: the tempting response was to scope `NuGetAuditMode` back to `direct` and
+make the message disappear. That would have silenced every future transitive finding as
+well, including ones that matter, and it would have done so in a way no reviewer could see.
+P24 exists to make that trade explicit rather than convenient.
+
+---
+
+## Security review — feature 003 (constitution P24)
+
+This feature is almost entirely SQL and it moved the access boundary, so P24 applies twice
+over. Reviewed before commit.
+
+**Zero new analyzer suppressions.** That was the design target rather than the outcome:
+`research.md` R5 states in advance that a `CA2100` appearing anywhere in this feature would be
+a design error to fix rather than a finding to justify, because the report takes three scalar
+parameters and its command text does not vary. It held. The repository's three existing
+CA2100 suppressions are unchanged and `.editorconfig` still keeps the rule at `error`.
+
+**Parameterisation.** Every value crosses as a typed `SqlParameter` — `@FromDate` and `@ToDate`
+as `SqlDbType.Date`, `@ClientId` as `SqlDbType.Int` with `DBNull.Value` when absent.
+`CommandType` is `StoredProcedure` and the command text is a `const` procedure name, so there
+is no string to concatenate into. The optional client is expressed as a null *argument*, not as
+a different command — one procedure, one plan, one thing to review.
+
+**Dates do not become strings.** They cross as `DateTime` at midnight against a `date`
+parameter. A string date would have reintroduced culture dependence at the boundary, which is
+the same class of problem the procedure works to avoid on its own side by anchoring week
+arithmetic on a fixed date rather than on `SET DATEFIRST`.
+
+**The access boundary moved and was re-verified.** `/api/v1/ping` — feature 001's placeholder,
+which existed only so the boundary could be shown to accept as well as reject — was deleted
+when the rollup endpoint landed. The rollup route carries no `AllowAnonymous`, so it inherits
+the fallback-closed policy; `/health` and the API documentation remain the only open routes.
+`AuthBoundaryTests` now aims its four cases at the rollup instead, which strengthens them: the
+boundary is proven on a route that returns database contents rather than a constant.
+
+**One thing accepted rather than fixed.** The single-client filter is applied after ranking, so
+a request for one client still aggregates every client's week and discards most of the result.
+That is required by FR-012 — a standing of "1 of 1" is information-free — but it means a caller
+can make the server do the full-population work while receiving one client's rows. There is no
+authorization model in this repository to leak across (PRD §2.2: no multi-tenancy, no RBAC) and
+no load to protect, so it is recorded as a known shape rather than treated as a finding. It is
+also the path where the next feature's index measurement should be most interesting.
+
+---
+
+## Security review — feature 002 (constitution P24)
+
+Two suppressions and one credential path, reviewed before commit.
+
+- **CA5394 in `SeedDataGenerator`** — insecure randomness. Accepted: this generator produces
+  demonstration data and never keys, tokens or identifiers, and reproducibility is a stated
+  requirement (FR-020). A seeded generator is the only thing that satisfies it.
+- **CA2100 in `ProcedureApplier`, `BulkSeeder` and `SeedVerifier`** — non-literal
+  `CommandText`, three sites. Accepted and scoped to the exact lines: the procedure applier
+  executes the contents of source-controlled `.sql` files applied by a developer against
+  their own database; the bulk seeder interpolates a table and column name that are
+  compile-time literals at every call site; the verifier's queries are literals passed
+  through a private helper. None takes user input and none crosses a trust boundary.
+  `.editorconfig` keeps CA2100 at `error` repository-wide, so any other non-literal SQL
+  still fails the build.
+- **Development token minting.** Reviewed: it signs with the configured key and the
+  algorithm constant, so the printed token cannot drift from what the validator accepts. Its
+  claim set is a single identity claim — nothing implying an authorisation model that does
+  not exist. It is written to stdout only, never to a file in the repository, and the
+  fail-closed behaviour verified in feature 001 still holds, so it is unusable outside
+  Development.
+
+---
+
 ## Security review — feature 001 (constitution P24)
 
 Manual review of the token validation configuration and the one analyzer suppression,
