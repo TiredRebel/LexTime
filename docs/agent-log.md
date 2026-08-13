@@ -254,7 +254,39 @@ build under `AnalysisModeSecurity=All`.
 that two runs produce *identical* rows, which a cryptographic generator cannot do by
 design. Suppressed at the class with a justification naming FR-020, and reviewed as a P24
 item below. This is worth recording because "fix the analyzer warning" would have quietly
-destroyed the property feature 003's measurement depends on.
+destroyed the property the index before/after measurement depends on.
+
+---
+
+## The build gate caught a vulnerability nobody in this repository introduced
+
+**Date**: 2026-08-13, while specifying feature 003. Not an agent mistake — recorded because
+it is the clearest evidence that the P23/P24 gate does something, and it arrived without
+anyone touching the code.
+
+**Symptom**: a build that had been green the previous evening failed with
+`NU1903: Package 'SSH.NET' 2025.1.0 has a known high severity vulnerability`. No source file
+had changed. GitHub advisory GHSA-q939-rpr3-3284 had been published in the interval, and
+`NuGetAudit` with `NuGetAuditMode=all` re-evaluates the whole transitive graph on every
+build rather than only direct references.
+
+**Cause**: `Testcontainers.MsSql 4.13.0` → `Docker.DotNet.Enhanced 4.3.3` → `SSH.NET`.
+Three levels down, in a test-only dependency, on a code path this project never executes —
+SSH.NET is how Testcontainers reaches a Docker daemon over SSH, and this project uses a
+local one.
+
+**Resolution**: 4.13.0 is the latest Testcontainers release, so there was no upstream fix to
+take. Pinned SSH.NET to 2026.0.0 as a direct reference in the test project, which lifts the
+transitive resolution out of the vulnerable range; audit went quiet, which is the advisory
+database confirming the version is patched rather than an inference. Verified the pin does
+not break the thing it sits underneath: `dotnet test` still passes 40 of 40 against real
+containers. The reference carries a comment saying to delete it once Testcontainers ships
+the patched version itself, so it does not calcify into a mystery.
+
+**Worth noting**: the tempting response was to scope `NuGetAuditMode` back to `direct` and
+make the message disappear. That would have silenced every future transitive finding as
+well, including ones that matter, and it would have done so in a way no reviewer could see.
+P24 exists to make that trade explicit rather than convenient.
 
 ---
 
