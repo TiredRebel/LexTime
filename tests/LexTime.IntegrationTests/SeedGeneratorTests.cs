@@ -26,9 +26,9 @@ public sealed class SeedGeneratorTests
     /// Two generations from identical options produce identical rows.
     /// </summary>
     /// <remarks>
-    /// The single most important assertion in this feature. Constitution P8 requires
-    /// feature 003's index before/after measurement to be comparable between runs, and it
-    /// cannot be if the dataset underneath differs. A generator that drifts breaks that
+    /// The single most important assertion in this feature. Constitution P8 requires the
+    /// index before/after measurement to be comparable between runs, and it cannot be if
+    /// the dataset underneath differs. A generator that drifts breaks that
     /// silently — nothing fails, the numbers are just quietly meaningless.
     /// </remarks>
     [Fact]
@@ -171,9 +171,9 @@ public sealed class SeedGeneratorTests
     /// history.
     /// </summary>
     /// <remarks>
-    /// This is the fixture feature 004's active-matter rule will be tested against, and the
-    /// case feature 003's rollup must take a position on: a client who left last year still
-    /// has billable activity in last year's report.
+    /// This is the fixture the active-matter domain rule will be tested against, and the
+    /// case feature 003's rollup takes a position on in its FR-010: a client who left last
+    /// year still has billable activity in last year's report.
     /// </remarks>
     [Fact]
     public void GeneratesInactiveRowsIncludingSomeWithHistory()
