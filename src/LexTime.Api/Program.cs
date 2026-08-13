@@ -1,4 +1,5 @@
 using LexTime.Api.Authentication;
+using LexTime.Api.Endpoints;
 using LexTime.Api.HealthChecks;
 using LexTime.Api.Maintenance;
 using LexTime.Application;
@@ -89,11 +90,14 @@ app.MapHealthChecks("/health", new HealthCheckOptions
     },
 }).AllowAnonymous();
 
-// Temporary. Exists only so the auth boundary can be shown to both reject and accept:
-// a boundary that only ever returns 401 is indistinguishable from a broken service.
-// Removed when the first real endpoint lands, and not one of the seventeen in
-// docs/prd.md §4 (see research.md R5).
-app.MapGet("/api/v1/ping", () => Results.Ok(new { status = "authenticated" }));
+// The reporting surface. Registered through an extension method so this file names what it
+// composes rather than showing how (constitution P21). Everything here is closed by the
+// fallback policy above; only the two routes marked AllowAnonymous are not.
+//
+// This replaces the /api/v1/ping placeholder feature 001 added, which existed only so the
+// access boundary could be shown to accept as well as reject. The boundary tests now aim at
+// this route instead, which makes them stronger: they guard something that returns data.
+app.MapReportEndpoints();
 
 await app.RunAsync().ConfigureAwait(false);
 
