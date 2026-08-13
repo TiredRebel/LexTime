@@ -91,6 +91,59 @@ Consequences accepted with this amendment:
     registered licence key at runtime, which would have added a signup step to the
     P18 quickstart. Recorded in PRD §2.2.
 
+--------------------------------------------------------------------------------
+
+Version change: 2.0.0 → 2.0.1
+Rationale: PATCH. A contradiction inside P4 is removed. Nothing a design may or must do
+changes.
+
+Modified principles:
+  - P4: the dependency rule is restated as five enumerated project references, up from a
+    prose list of two chains, and the gate is stated as exhaustive — a reference not on the
+    list fails it. Two edges are added, both of which the repository has always had:
+
+      * `Infrastructure` → `Application`. The old text listed `Api` → `Application` →
+        `Domain` and `Infrastructure` → `Domain`, then required in the same paragraph that
+        "where Application needs infrastructure it declares the interface and Infrastructure
+        implements it". Those cannot both hold: an implementing type must see the interface
+        it implements. The prose already mandated the edge; the list omitted it. Now scoped
+        explicitly — `Infrastructure` may reference `Application` to implement interfaces
+        declared there, and for nothing else.
+
+      * `Api` → `Infrastructure`. Present since feature 001 and never listed, because
+        `Program.cs` cannot call `AddLexTimeInfrastructure()` without it. Now named, with
+        the rule that actually carries the meaning stated alongside it: no *endpoint* may
+        name an `Infrastructure` type. The three files that legitimately do — composition,
+        the health probe, the maintenance verbs — are enumerated, so a fourth is a violation
+        rather than a precedent.
+
+    Enumerating the references rather than writing chains also avoids implying that
+    `Infrastructure` reaches `Domain` only transitively. It does not — it references `Domain`
+    directly, for the entity configurations.
+
+    PATCH rather than MINOR: no new permission is granted and no rule is widened. Both
+    added edges already existed in the solution and the second was already required by P21.
+    What changes is that the list now says what the prose always meant.
+
+Found by: feature 003, in two steps worth separating. The first edge surfaced from the
+compiler — `SqlWeeklyBillableRollupReader` implements `IWeeklyBillableRollupReader`, which
+lives in `LexTime.Application`, so the reference was unavoidable. The `/plan` Constitution
+Check had already passed that design on P4 without flagging anything, because the prose was
+read as governing and the arrow list as illustrative; `docs/agent-log.md` entry 18 records
+that a gate checked by reading can be passed by reading it the convenient way.
+
+The second edge surfaced only from mechanically diffing the amended list against every
+`ProjectReference` in `src/`. `Api` → `Infrastructure` had been in the solution since
+feature 001, unlisted, through three Constitution Checks that each read P4 and did not
+notice. Reading the principle found one omission; comparing it against the build found the
+other.
+
+Added sections: none
+Removed sections: none
+Deferred items: none
+
+--------------------------------------------------------------------------------
+
 Amendment-clause note: v1.1.0 and v2.0.0 land in a single commit. v1.1.0 was written
 but never committed before v2.0.0 was requested, so there is no v1.1.0 commit to
 separate them into. Stated here rather than implying the "dedicated commit" rule was
@@ -138,11 +191,45 @@ design rule — the spec is cut, never the rule.
 **P4. Four projects, layered, with dependencies pointing inward. (MUST)**
 `LexTime.Api`, `LexTime.Application`, `LexTime.Domain`,
 `LexTime.Infrastructure`, plus one test project. The dependency rule is the
-gate: `Api` → `Application` → `Domain`, and `Infrastructure` → `Domain`.
+gate, and these five project references are the whole of it — any reference not on this
+list fails the gate:
+
+```
+Api            → Application
+Api            → Infrastructure     (composition only, see below)
+Application    → Domain
+Infrastructure → Domain
+Infrastructure → Application
+```
+
 `LexTime.Domain` references no other project and no persistence, HTTP or
 mapping package. Where `Application` needs infrastructure it declares the
 interface and `Infrastructure` implements it — an interface with a single
-implementation is expected here rather than deferred.
+implementation is expected here rather than deferred. `Infrastructure` →
+`Application` is what makes that possible and is the only reason it is
+permitted: `Infrastructure` may reference `Application` to implement interfaces
+declared there, and for nothing else. `Application` knows nothing of
+`Infrastructure`, which is the direction the principle's title names.
+
+`Api` → `Infrastructure` exists so that `Program.cs` can call
+`AddLexTimeInfrastructure()` and bind those interfaces to their implementations. A
+composition root has to see every layer it wires; that is what makes it the composition
+root.
+
+**No endpoint may name an `Infrastructure` type.** That is the rule this edge could
+otherwise hide, and it is the one worth checking: an endpoint reaching past `Application`
+for a `DbContext` or a reader defeats the layering while leaving the project references
+looking correct. Three files in `LexTime.Api` reference `Infrastructure` and none of them is
+an endpoint — they are named here so the list is a fixed set rather than a habit:
+
+- `Program.cs` — composition.
+- `HealthChecks/DatabaseHealthCheck.cs` — a liveness probe has to touch the database it is
+  reporting on, and routing it through a use case would invent one.
+- `Maintenance/MaintenanceCommands.cs` — the host's command-line surface, which runs instead
+  of the web host and serves the bootstrap script. Not an HTTP endpoint and subject to no
+  request pipeline.
+
+A fourth site is a violation unless this list is amended to admit it.
 
 Every use case is one handler class in `LexTime.Application`, registered in DI
 and injected where it is used. Entity-to-DTO translation is a `ToDto()`
@@ -350,4 +437,4 @@ document against the finished code once, end to end. Anything that drifted is
 either fixed or the principle is honestly amended — never left silently
 violated.
 
-**Version**: 2.0.0 | **Ratified**: 2026-08-12 | **Last Amended**: 2026-08-12
+**Version**: 2.0.1 | **Ratified**: 2026-08-12 | **Last Amended**: 2026-08-13
