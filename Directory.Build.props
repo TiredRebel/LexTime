@@ -1,0 +1,36 @@
+<Project>
+
+  <!--
+    Repository-wide build settings. Constitution P23 requires the quality gate to be
+    reproducible by anyone running `dotnet build`, and P25 requires XML documentation on
+    every member. Both are enforced here rather than per project, so a project added later
+    inherits the gate by existing. No project may opt out.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Roslyn analyzers shipped with the SDK. No third-party analyzer package (P23). -->
+    <AnalysisMode>Recommended</AnalysisMode>
+    <AnalysisModeSecurity>All</AnalysisModeSecurity>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Turns on CS1591, which is what makes P25 a build failure rather than a convention. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Fails the build on a referenced package with a known vulnerability (P24). -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+  </PropertyGroup>
+
+  <!--
+    TreatWarningsAsErrors is deliberately NOT set here. The pipeline passes the
+    warnaserror switch on the command line, so a warning blocks the merge while local
+    builds stay usable during the edit-run loop. See constitution P23.
+  -->
+
+</Project>

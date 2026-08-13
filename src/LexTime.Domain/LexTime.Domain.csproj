@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Entities and domain rules. References no other project and no persistence, web or serialisation package — the innermost layer of the dependency rule in constitution P4.</Description>
+  </PropertyGroup>
+
+</Project>

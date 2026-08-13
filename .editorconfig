@@ -1,0 +1,55 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml,md}]
+indent_size = 2
+
+[*.{csproj,props,targets}]
+indent_size = 2
+
+[*.cs]
+max_line_length = 120
+
+# Constitution P25: an undocumented publicly visible member is a build failure, not a
+# suggestion. GenerateDocumentationFile in Directory.Build.props raises CS1591; this
+# pins its severity so it cannot be quietly demoted.
+dotnet_diagnostic.CS1591.severity = warning
+
+# P4 forbids a mediator and a mapping library, so DTO translation is hand-written.
+# These keep that code honest rather than merely present.
+dotnet_diagnostic.CA1062.severity = warning   # validate arguments of public methods
+dotnet_diagnostic.CA2007.severity = none      # ConfigureAwait: not relevant in ASP.NET Core
+
+# P24: SQL built from anything other than a literal must be seen, not inherited silently.
+dotnet_diagnostic.CA2100.severity = error
+
+# Style rules that EnforceCodeStyleInBuild would otherwise report only in the IDE.
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_when_type_is_apparent = true:suggestion
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+dotnet_diagnostic.IDE0161.severity = warning  # use file-scoped namespace
+
+[**/Migrations/*.cs]
+# EF Core authors these files and rewrites them on every `migrations add`. Hand-editing
+# them to satisfy CA1062, CA1861 and IDE0161 would be undone by the next scaffold, so they
+# are declared generated code — the mechanism the analyzers provide for exactly this.
+# Note this suppresses style and quality rules only: the SQL these files emit is still read
+# line by line before commit, which is what constitution P15 actually asks for.
+generated_code = true
+
+[tests/**/*.cs]
+# Test classes are instantiated by the runner, not by name.
+dotnet_diagnostic.CA1707.severity = none      # underscores in member names
+
+# xUnit's convention for a [CollectionDefinition] class is <Thing>Collection, and a
+# reviewer recognises it on sight. CA1711 reserves the Collection suffix for ICollection
+# implementors, which is the right rule for library code and the wrong one here. Scoped to
+# tests only, and stated rather than inherited silently.
+dotnet_diagnostic.CA1711.severity = none      # reserved type-name suffix
