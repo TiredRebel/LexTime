@@ -3,12 +3,13 @@
 A minimal timekeeping API for legal billing — .NET 9, SQL Server 2022, and one
 stored procedure that does the interesting work.
 
-> **Status: specification complete, implementation not started.**
-> The constitution (`.specify/memory/constitution.md`) and PRD (`docs/prd.md`)
-> are committed and binding. Sections below marked `TODO(measure)` are
-> deliberately empty — this repository's constitution forbids publishing
-> performance numbers that were not captured from a real run, so the
-> placeholders stay visibly empty until they are.
+> **Status: feature 001 complete — solution, schema, health and access boundary.**
+> The four projects build clean under `--warnaserror`, the schema and its constraints
+> are applied by migration, and 21 integration tests run against a real SQL Server
+> container. Data seeding and the bootstrap script are feature 002; the rollup is
+> feature 003. Sections below marked `TODO(measure)` are deliberately empty — this
+> repository's constitution forbids publishing performance numbers that were not
+> captured from a real run, so the placeholders stay visibly empty until they are.
 
 ---
 
@@ -26,20 +27,35 @@ not a product; `docs/prd.md` §2.2 lists what it deliberately does not build.
 ## Quickstart
 
 Requires Docker and the .NET SDK 9.0.317 or a later 9.0.x (pinned in
-`global.json`). Two commands:
+`global.json`).
+
+**Today this is three commands, not two.** The script that reduces it to two is
+feature 002, and this section will say two when it exists rather than before.
 
 ```powershell
-pwsh ./scripts/Initialize-LocalDb.ps1
+docker compose up -d
+```
+
+```powershell
+dotnet ef database update --project src/LexTime.Infrastructure --startup-project src/LexTime.Api
+```
+
+```powershell
 dotnet run --project src/LexTime.Api
 ```
 
-The first brings up SQL Server in Docker, applies EF Core migrations, applies
-the stored procedures, and seeds ~400,000 time entries via `SqlBulkCopy`. It is
-idempotent — running it twice is safe. The second serves Swagger UI and a
-`/health` endpoint that checks database connectivity.
+That brings up SQL Server 2022, applies the schema, and serves Swagger UI plus a
+`/health` endpoint that reports each check by name. The database is empty:
+seeding ~400,000 time entries arrives with feature 002.
 
-No account, no licence key, no tool to install. If a step exists but is not
-documented here, that is a defect.
+To discard the container and its data entirely:
+
+```powershell
+docker compose down -v
+```
+
+No account, no licence key, no tool to install beyond `dotnet-ef`. If a step
+exists but is not documented here, that is a defect.
 
 ## Architecture
 
@@ -55,7 +71,10 @@ LexTime.Api  →  LexTime.Application  →  LexTime.Domain
 
 - **`LexTime.Domain`** — entities and the six domain rules. References nothing.
 - **`LexTime.Application`** — one handler class per use case, DTOs with their
-  `ToDto()` extensions, and the interfaces `Infrastructure` implements.
+  `ToDto()` extensions, and the interfaces `Infrastructure` implements. Today it
+  holds only its DI registration method: feature 001 has no use cases, and the
+  reporting interface arrives with feature 003. The project exists now because
+  the layering is a constitutional requirement, not because it earns its keep yet.
 - **`LexTime.Infrastructure`** — EF Core `DbContext`, migrations, and the
   stored-procedure client.
 - **`LexTime.Api`** — endpoints, validation, JWT, DI composition. An endpoint
@@ -145,13 +164,19 @@ xUnit against real SQL Server 2022 via Testcontainers. No in-memory provider,
 no SQLite, no mocked `DbContext` — a test that cannot run against the real
 engine is not testing what this repository claims to be good at.
 
-Coverage is deliberate rather than uniform: every domain rule gets a rejecting
-and an accepting case, the rollup is asserted against a **hand-computed
-fixture** (expected cumulative totals, `LAG` deltas and ranks worked out by a
-human, not by running the procedure and recording its output), and boundary
-cases — empty date ranges, weeks with zero billable hours — are covered
-explicitly. Trivial CRUD gets one happy path and one 404. No coverage
-percentage is targeted or reported.
+Coverage is deliberate rather than uniform. Today, 21 tests cover the storage
+constraints, the health contract and the access boundary — asserted against the
+database directly, so that application-layer validation cannot mask a missing
+constraint. Two of them assert that something is **absent**: a three-year-old
+billing date must be accepted, because the 90-day backdating rule governs
+submissions and not stored history, and adding the "obviously missing" date
+constraint would break feature 002's seed silently.
+
+As later features land: every domain rule gets a rejecting and an accepting
+case, and the rollup is asserted against a **hand-computed fixture** — expected
+cumulative totals, `LAG` deltas and ranks worked out by a human, not by running
+the procedure and recording its output. Trivial CRUD gets one happy path and one
+404. No coverage percentage is targeted or reported.
 
 ```powershell
 dotnet test
@@ -194,7 +219,6 @@ judgement.
 | No multi-tenancy | Real concern, but it doubles the data model and every query |
 | Hard deletes, `CreatedAtUtc`/`UpdatedAtUtc` only | A full audit trail is product work, not signal |
 | Pipeline stops at publish | A live Azure environment costs money and a weekend |
-| No OData | Relevant to the stack, but it adds a query surface with no reporting story |
 | One report, not several | The pattern is proven once; repeating it is padding |
 | No secret management beyond `appsettings.Development.json` | Demo scope, said out loud rather than hidden |
 | Clean-architecture layering at this size | Seventeen endpoints, four with real logic, do not need a handler class each. The layering is here because it is worth showing done properly — a presentation decision, not one the problem forced |
@@ -241,6 +265,27 @@ licence key at runtime** — which would have put a mediatr.io signup in front o
 the two-command quickstart. That detail was not in the recalled version and is
 the reason both libraries were dropped. The constitution's rule against
 unverified performance numbers turned out to apply just as well to licences.
+
+**5. It fell into the same trap twice, a day apart.** Mistake 2 was a stale
+incremental build reporting a false pass. During implementation the agent ran
+`dotnet ef migrations script --no-build` to review the generated SQL by hand, as
+the constitution requires before committing a migration. The script contained
+only the migrations-history table — no tables, no check constraint — because
+`--no-build` had used an assembly compiled before the migration existed. Caught
+by reading the output rather than skimming it. Both failures are the same shape:
+a stale artefact reporting success.
+
+**6. A test failed on its own fixture, not on the code.** The helper minting an
+expired JWT set the expiry an hour in the past and left `notBefore` five minutes
+in the past, so `notBefore > expires` and the token could not be constructed.
+The test failed for a real reason that had nothing to do with the boundary it
+was meant to exercise. Worth recording because a red test is not automatically
+evidence about the thing under test — had the assertion been on the exception
+type, it would have "passed" for entirely the wrong reason.
+
+Ten entries in total, including the misleading build error where a `--` inside
+an XML comment broke `Directory.Build.props` and surfaced as
+`NuGet.targets: Invalid framework identifier ''`. See `docs/agent-log.md`.
 
 ## Layout
 
