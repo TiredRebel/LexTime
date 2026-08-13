@@ -1,4 +1,5 @@
 using LexTime.Infrastructure.Persistence;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.MsSql;
 
@@ -47,10 +48,54 @@ public sealed class SqlServerFixture : IAsyncLifetime
     /// responsible for disposing it.
     /// </summary>
     /// <returns>A new <see cref="LexTimeDbContext"/> bound to the container.</returns>
-    public LexTimeDbContext CreateContext()
+    public LexTimeDbContext CreateContext() => CreateContext(this.ConnectionString);
+
+    /// <summary>
+    /// Builds a connection string for a separate database on the same container.
+    /// </summary>
+    /// <param name="databaseName">Name of the database to point at.</param>
+    /// <returns>A connection string differing only in the initial catalogue.</returns>
+    public string ConnectionStringFor(string databaseName) =>
+        new SqlConnectionStringBuilder(this.ConnectionString)
+        {
+            InitialCatalog = databaseName,
+        }.ConnectionString;
+
+    /// <summary>
+    /// Drops, recreates and migrates a named database on the shared container.
+    /// </summary>
+    /// <remarks>
+    /// Seeding tests count rows and compare them against expected volumes, so they cannot
+    /// share a database with the constraint tests, which insert their own fixtures into it.
+    /// A separate database on the same container costs a few seconds; a separate container
+    /// costs tens of them.
+    /// </remarks>
+    /// <param name="databaseName">Name of the database to create.</param>
+    /// <returns>A connection string for the freshly migrated database.</returns>
+    public async Task<string> CreateIsolatedDatabaseAsync(string databaseName)
+    {
+        await this.container
+            .ExecScriptAsync(
+                $"IF DB_ID('{databaseName}') IS NOT NULL BEGIN " +
+                $"ALTER DATABASE [{databaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; " +
+                $"DROP DATABASE [{databaseName}]; END; CREATE DATABASE [{databaseName}];")
+            .ConfigureAwait(false);
+
+        var connectionString = this.ConnectionStringFor(databaseName);
+
+        await using var context = CreateContext(connectionString);
+        await context.Database.MigrateAsync().ConfigureAwait(false);
+
+        return connectionString;
+    }
+
+    /// <summary>Creates a context bound to an explicit connection string.</summary>
+    /// <param name="connectionString">The connection to bind to.</param>
+    /// <returns>A new context the caller owns.</returns>
+    public static LexTimeDbContext CreateContext(string connectionString)
     {
         var options = new DbContextOptionsBuilder<LexTimeDbContext>()
-            .UseSqlServer(this.ConnectionString)
+            .UseSqlServer(connectionString)
             .Options;
 
         return new LexTimeDbContext(options);

@@ -166,6 +166,122 @@ was removed and the health check written against the framework's own abstraction
 
 ---
 
+## Feature 002 — bootstrap and seed
+
+### 11. A guard that fired before the handler meant to catch it
+
+**Generated**: a maintenance verb layer mapping configuration failures to exit code 1, per
+its own contract.
+
+**Symptom**: running a verb with no connection string killed the process with an unhandled
+`InvalidOperationException`, a full stack trace, and exit code `-532462766`. The documented
+exit code 1 was unreachable.
+
+**Caught by**: running the verb instead of trusting the `try`/`catch` that surrounded the
+call. Feature 001's configuration guard throws during *service registration*, which happens
+before the host is built and therefore before anything in the verb layer exists to catch
+it.
+
+**Resolution**: the guard moved up to wrap registration, and only for maintenance
+invocations — a misconfigured web server should still fail loudly rather than start quietly.
+
+### 12. Adding a return value silently broke nine tests
+
+**Generated**: `return await MaintenanceCommands.RunAsync(...)` in `Program.cs`, so the verb
+layer's exit code became the process exit code.
+
+**Symptom**: nine tests failed with "The server has not been started or no web application
+was configured". Every one of them was a `WebApplicationFactory` test; none of them touched
+the code that changed.
+
+**Caught by**: the regression check the task list required immediately after modifying
+`Program.cs`, for exactly this reason.
+
+**Resolution**: two separate causes, found in order. A `return <int>` anywhere in top-level
+statements makes the generated `Main` return `Task<int>`, which the factory's entry-point
+interception does not support — replaced with `Environment.ExitCode`. That alone did not fix
+it: the gate was `args.Length > 0`, and **the test host passes arguments of its own**, so
+every test was being treated as a maintenance invocation and exiting before the server
+started. The gate is now "the first argument is a verb this class owns", which is what it
+should have said in the first place.
+
+### 13. A shell preference turned a success into a misleading failure
+
+**Generated**: a bootstrap script with `$ErrorActionPreference = 'Stop'` and native commands
+invoked as `& docker ... 2>&1`.
+
+**Symptom**: `FAILED: Docker is not responding` — while Docker was running and serving
+containers.
+
+**Caught by**: not believing the message. `docker ps` from the same shell exited 0 and
+listed the running container.
+
+**Resolution**: with `Stop` in effect, redirecting a native command's stderr through `2>&1`
+turns *any* stderr line into a terminating error, even when the command succeeded. Every
+external call now goes through one helper that drops to `Continue` for the duration and
+returns the exit code explicitly. The failure this caused is precisely the one FR-011 exists
+to prevent: a message that names the wrong cause.
+
+A second, smaller instance in the same area: the prerequisite check originally used
+`docker version`, which can print a client version and exit 0 while the daemon is
+unreachable. It answers a different question than the one being asked, so the check now uses
+`docker ps`.
+
+### 14. A regex replacement inlined the entire file into itself
+
+**Generated**: a PowerShell `-replace` whose replacement text contained `$_`, intended as
+part of a `Where-Object` block being written into the script.
+
+**Symptom**: the script file roughly doubled in size and the second half of it appeared
+partway through a line of the first.
+
+**Caught by**: reading the diff. In .NET replacement syntax `$_` is a substitution meaning
+**the entire input string**, so the whole file was inserted at that point.
+
+**Resolution**: file rewritten wholesale rather than patched. Worth recording because the
+mistake is invisible in the pattern — the replacement text looked like ordinary PowerShell.
+
+### 15. The analyzers objected to the one thing that had to be true
+
+**Generated**: a deterministic data generator built on `System.Random`.
+
+**Symptom**: `CA5394: Random is an insecure random number generator`, six times, failing the
+build under `AnalysisModeSecurity=All`.
+
+**Caught by**: the build gate, immediately.
+
+**Resolution**: the diagnostic is correct in general and inverted here — the requirement is
+that two runs produce *identical* rows, which a cryptographic generator cannot do by
+design. Suppressed at the class with a justification naming FR-020, and reviewed as a P24
+item below. This is worth recording because "fix the analyzer warning" would have quietly
+destroyed the property feature 003's measurement depends on.
+
+---
+
+## Security review — feature 002 (constitution P24)
+
+Two suppressions and one credential path, reviewed before commit.
+
+- **CA5394 in `SeedDataGenerator`** — insecure randomness. Accepted: this generator produces
+  demonstration data and never keys, tokens or identifiers, and reproducibility is a stated
+  requirement (FR-020). A seeded generator is the only thing that satisfies it.
+- **CA2100 in `ProcedureApplier`, `BulkSeeder` and `SeedVerifier`** — non-literal
+  `CommandText`, three sites. Accepted and scoped to the exact lines: the procedure applier
+  executes the contents of source-controlled `.sql` files applied by a developer against
+  their own database; the bulk seeder interpolates a table and column name that are
+  compile-time literals at every call site; the verifier's queries are literals passed
+  through a private helper. None takes user input and none crosses a trust boundary.
+  `.editorconfig` keeps CA2100 at `error` repository-wide, so any other non-literal SQL
+  still fails the build.
+- **Development token minting.** Reviewed: it signs with the configured key and the
+  algorithm constant, so the printed token cannot drift from what the validator accepts. Its
+  claim set is a single identity claim — nothing implying an authorisation model that does
+  not exist. It is written to stdout only, never to a file in the repository, and the
+  fail-closed behaviour verified in feature 001 still holds, so it is unusable outside
+  Development.
+
+---
+
 ## Security review — feature 001 (constitution P24)
 
 Manual review of the token validation configuration and the one analyzer suppression,
