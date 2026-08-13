@@ -171,8 +171,8 @@ non-existent client and no credentials, and inspect each response.
   combination that has at least one time entry in the range. Combinations with no entries
   MUST NOT produce rows — including the silent weeks that FR-008 compares against, which are
   detected rather than materialised. A row per client per week regardless of activity would
-  return roughly 6,200 rows for the seeded range irrespective of how much was billed, and
-  would collapse the standing in FR-009 into a mass tie at zero.
+  return 6,240 rows for the seeded range irrespective of how much was billed, and would
+  collapse the standing in FR-009 into a mass tie at zero.
 - **FR-003**: Weeks MUST be identified by ISO-8601 week numbering — weeks begin on Monday,
   and each week belongs to the week-numbering year containing its Thursday. Each row MUST
   carry the week-numbering year, the week number, and the date of that week's Monday.
@@ -251,7 +251,13 @@ non-existent client and no credentials, and inspect each response.
   returning week's change is its own hours, and that it is *not* the difference against the
   week the client last billed in. A fixture where those two happen to coincide does not
   test FR-008.
-- **FR-023**: An empty range MUST be covered by its own test. Reporting calculations that
+- **FR-023**: The fixture MUST additionally include a gap that spans a year boundary — a
+  client silent through the last weeks of December that bills again in week 1. FR-003 and
+  FR-008 only meet here, and they meet badly: week 1 follows week 52 or week 53 depending on
+  the year, so any notion of "the preceding week" derived from the week number rather than
+  from the dates is wrong every January and right the rest of the time. Neither the plain
+  gap case nor the plain year-attribution case detects that on its own.
+- **FR-024**: An empty range MUST be covered by its own test. Reporting calculations that
   accumulate across rows commonly fail on the empty case in a way no populated test detects.
 
 ### Key Entities
@@ -281,8 +287,8 @@ non-existent client and no credentials, and inspect each response.
 - **SC-003**: Two identical requests return identical rows in identical order, byte for
   byte.
 - **SC-004**: The full-range report over the seeded dataset is produced by a single database
-  round trip and returns at most roughly 6,500 rows — 60 clients across 104 weeks, less the
-  combinations with no activity.
+  round trip and returns fewer than 6,240 rows — 60 clients across 104 weeks, less every
+  combination with no activity.
 - **SC-005**: An empty range and a zero-billable week each return a correct result, verified
   by tests that exist independently of the populated case.
 - **SC-006**: An unauthenticated request obtains no figure from the report under any
@@ -291,6 +297,13 @@ non-existent client and no credentials, and inspect each response.
   during which it was billed, confirmed against the seeded dataset.
 - **SC-008**: Every rejected request names what was wrong with it, as judged by someone who
   has not read the code.
+- **SC-009**: The report can be invoked directly against the database, outside the
+  application entirely, and returns every column of every row already computed — including
+  the running total, the change against the prior week and the standing. This is the
+  observable form of FR-014: a design that fetched raw rows and derived those three figures
+  in application code would satisfy SC-004 and fail this. It is also the form the
+  hand-computed fixture test should take, so a failure localises to the report rather than
+  to the report and the endpoint together.
 
 ## Assumptions
 
@@ -306,7 +319,10 @@ non-existent client and no credentials, and inspect each response.
   correct and quietly rewrite history.
 - **Standing is computed before the client filter is applied.** A standing of "1 of 1" is
   information-free; the useful reading of a single-client report is where that client stood
-  among all of them.
+  among all of them. It follows that a single-client request still has to aggregate every
+  client's week and then discard most of it — so the single-client path, not the full-range
+  path, is where the missing index costs the most and is the one the later measurement
+  should take.
 - **No covering index is added by this feature.** The schema ships with the day-one index
   set on purpose (`docs/prd.md` §3). Adding the index here would leave the later before/after
   comparison with no honest "before" to measure, so the report is built and tested against
