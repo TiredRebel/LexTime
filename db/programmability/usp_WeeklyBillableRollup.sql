@@ -66,6 +66,12 @@ BEGIN
                 snapshotted onto each entry when it was created, never the timekeeper's current
                 rate -- joining to Users here would look correct and silently rewrite every
                 historical figure the next time someone got a raise.
+
+                This sum is minutes-times-money and is narrowed to decimal(19,4) below, which
+                holds about 10^15. A single client-week would have to bill some 10^11 hours to
+                reach it. Stated because the narrowing is a real ceiling rather than a
+                formality, and a wider target is not free: decimal(38,x) divided by a literal
+                runs into SQL Server's precision rules and loses scale instead of erroring.
             */
             BillableMinuteValue =
                 SUM(CASE WHEN te.IsBillable = 1
@@ -144,7 +150,7 @@ BEGIN
             ClientRankInWeek = CAST(
                 DENSE_RANK() OVER (
                     PARTITION BY wt.WeekIndex
-                    ORDER BY CAST(wt.BillableMinutes AS decimal(18, 4)) DESC) AS int)
+                    ORDER BY wt.BillableMinutes DESC) AS int)
         FROM WeeklyTotals AS wt
     )
     SELECT

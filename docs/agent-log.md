@@ -258,6 +258,76 @@ destroyed the property the index before/after measurement depends on.
 
 ---
 
+## Feature 003 — weekly billable rollup
+
+### 16. A contract fixed in one place and drifted from in another
+
+**Generated**: the procedure's final `SELECT`, returning `DENSE_RANK() OVER (...)` directly as
+`ClientRankInWeek`.
+
+**Symptom**: every one of the eleven tests that read a row failed with
+`System.InvalidCastException: Unable to cast object of type 'System.Int64' to type
+'System.Int32'`, thrown from `SqlDataReader.GetInt32`. Nothing named the column, and the stack
+pointed only at the reader's mapping loop.
+
+**Cause**: SQL Server's ranking functions — `ROW_NUMBER`, `RANK`, `DENSE_RANK`, `NTILE` — all
+return `bigint`. The result-set contract says `int`, and a standing among sixty clients has no
+use for the other thirty-two bits.
+
+**Caught by**: the tests, immediately and loudly. Worth recording for *why* it was possible:
+the feature deliberately shipped the procedure first as a typed empty shell, precisely so the
+twelve-column contract was fixed before anything bound to it. The shell declared
+`CAST(0 AS int)` and was right. The implementation that replaced it then drifted from the
+contract the shell existed to establish — so the technique worked exactly as intended and the
+mistake happened one layer above it.
+
+**Resolution**: `CAST(... AS int)` on the rank, with a comment saying why the cast is there
+rather than leaving a future reader to wonder.
+
+### 17. Two findings from reading the SQL that no test would have produced
+
+Constitution P15 requires generated SQL involving window functions to be read line by line
+rather than accepted on a green run. It had just gone green on all fifty-eight tests. The read
+found two things anyway, neither of which any test could fail on:
+
+- **A cast that implied a subtlety that did not exist.** The `DENSE_RANK` ordered by
+  `CAST(BillableMinutes AS decimal(18,4)) DESC`. Ranking by the integer is identical — the
+  conversion is monotonic — so the cast bought nothing and suggested to a reader that something
+  about the decimal form mattered. Removed.
+- **An unstated ceiling.** The amount is summed as minutes-times-money and narrowed to
+  `decimal(19,4)`, which holds about 10^15. That is roughly ten thousand times the seeded
+  maximum, so no test will ever reach it — but it is a real ceiling and a widening is not free,
+  because `decimal(38,x)` divided by a literal runs into SQL Server's precision rules and loses
+  scale rather than erroring. Now stated in the procedure.
+
+Neither is a bug. Both are the kind of thing that only turns up when someone reads the code
+with the question "what is this actually claiming?", which is the whole argument for P15.
+
+### 18. A principle that mandates an edge its own diagram omits
+
+**Observed**: constitution P4 states the dependency rule as `Api → Application → Domain`, and
+`Infrastructure → Domain`. It then requires, in the same paragraph, that "where `Application`
+needs infrastructure it declares the interface and `Infrastructure` implements it".
+
+**Symptom**: the second requirement cannot be satisfied while the first list is exhaustive.
+`SqlWeeklyBillableRollupReader` implements `IWeeklyBillableRollupReader`, which lives in
+`LexTime.Application`, so `LexTime.Infrastructure` must reference it — an edge P4's list does
+not name.
+
+**Caught by**: the compiler, on the first build of the reader. Recorded because the interesting
+part is not the error but what it exposes: the Constitution Check at `/plan` passed this
+feature on P4 without anyone noticing the tension, because the prose was read as governing and
+the arrow list as illustrative. A gate that is checked by reading can be passed by reading it
+the convenient way.
+
+**Resolution taken**: the reference was added, with a comment in the `.csproj` pointing at the
+plan. The dependency still points inward — `Application` is the more central layer and knows
+nothing of `Infrastructure` — which is the rule P4's title states. **The arrow list should be
+amended to name the edge** so the document matches the design it mandates; that is a governance
+commit, not something to slip into a feature.
+
+---
+
 ## The build gate caught a vulnerability nobody in this repository introduced
 
 **Date**: 2026-08-13, while specifying feature 003. Not an agent mistake — recorded because
@@ -287,6 +357,45 @@ the patched version itself, so it does not calcify into a mystery.
 make the message disappear. That would have silenced every future transitive finding as
 well, including ones that matter, and it would have done so in a way no reviewer could see.
 P24 exists to make that trade explicit rather than convenient.
+
+---
+
+## Security review — feature 003 (constitution P24)
+
+This feature is almost entirely SQL and it moved the access boundary, so P24 applies twice
+over. Reviewed before commit.
+
+**Zero new analyzer suppressions.** That was the design target rather than the outcome:
+`research.md` R5 states in advance that a `CA2100` appearing anywhere in this feature would be
+a design error to fix rather than a finding to justify, because the report takes three scalar
+parameters and its command text does not vary. It held. The repository's three existing
+CA2100 suppressions are unchanged and `.editorconfig` still keeps the rule at `error`.
+
+**Parameterisation.** Every value crosses as a typed `SqlParameter` — `@FromDate` and `@ToDate`
+as `SqlDbType.Date`, `@ClientId` as `SqlDbType.Int` with `DBNull.Value` when absent.
+`CommandType` is `StoredProcedure` and the command text is a `const` procedure name, so there
+is no string to concatenate into. The optional client is expressed as a null *argument*, not as
+a different command — one procedure, one plan, one thing to review.
+
+**Dates do not become strings.** They cross as `DateTime` at midnight against a `date`
+parameter. A string date would have reintroduced culture dependence at the boundary, which is
+the same class of problem the procedure works to avoid on its own side by anchoring week
+arithmetic on a fixed date rather than on `SET DATEFIRST`.
+
+**The access boundary moved and was re-verified.** `/api/v1/ping` — feature 001's placeholder,
+which existed only so the boundary could be shown to accept as well as reject — was deleted
+when the rollup endpoint landed. The rollup route carries no `AllowAnonymous`, so it inherits
+the fallback-closed policy; `/health` and the API documentation remain the only open routes.
+`AuthBoundaryTests` now aims its four cases at the rollup instead, which strengthens them: the
+boundary is proven on a route that returns database contents rather than a constant.
+
+**One thing accepted rather than fixed.** The single-client filter is applied after ranking, so
+a request for one client still aggregates every client's week and discards most of the result.
+That is required by FR-012 — a standing of "1 of 1" is information-free — but it means a caller
+can make the server do the full-population work while receiving one client's rows. There is no
+authorization model in this repository to leak across (PRD §2.2: no multi-tenancy, no RBAC) and
+no load to protect, so it is recorded as a known shape rather than treated as a finding. It is
+also the path where the next feature's index measurement should be most interesting.
 
 ---
 

@@ -69,7 +69,7 @@ violated.
 
 ```powershell
 $token = '<paste the token the bootstrap printed>'
-curl -H "Authorization: Bearer $token" "http://localhost:5000/api/v1/reports/weekly-billable-rollup?from=2026-01-05&to=2026-02-01"
+curl -H "Authorization: Bearer $token" "http://localhost:5202/api/v1/reports/weekly-billable-rollup?from=2026-01-05&to=2026-02-01"
 ```
 
 **Expected**: `200` and a JSON envelope echoing `from` and `to` with a `rows` array whose
@@ -86,7 +86,7 @@ Then the refusals:
 | a range with no seeded activity, e.g. `from=2030-01-07&to=2030-02-04` | `200` with `"rows": []` |
 | `clientId=999999` | `200` with `"rows": []`, **not** `404` |
 
-Swagger at `http://localhost:5000/swagger` lists the endpoint and is reachable without a
+Swagger at `http://localhost:5202/swagger` lists the endpoint and is reachable without a
 token, as it was before.
 
 ## Validation 3 — the tests
@@ -95,8 +95,8 @@ token, as it was before.
 dotnet test
 ```
 
-**Expected**: green, with the feature-003 additions on top of the 40 tests features 001 and 002
-left passing.
+**Expected**: `Failed: 0, Passed: 58` — eighteen added here, on top of the 40 that features 001
+and 002 left passing.
 
 The tests that matter most here are the procedure-level ones. They call
 `dbo.usp_WeeklyBillableRollup` directly against a small fixture whose expected running totals,

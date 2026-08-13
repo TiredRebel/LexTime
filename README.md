@@ -3,11 +3,12 @@
 A minimal timekeeping API for legal billing — .NET 9, SQL Server 2022, and one
 stored procedure that does the interesting work.
 
-> **Status: features 001 and 002 complete — solution, schema, seeded data, health
-> and access boundary.** The four projects build clean under `--warnaserror`, the
-> two-command quickstart works from cold, 400,000 deterministic time entries load in
-> under a minute, and 40 integration tests run against a real SQL Server container.
-> The weekly rollup is feature 003. Sections below marked `TODO(measure)` are
+> **Status: features 001–003 complete — solution, schema, seeded data, health,
+> access boundary, and the weekly billable rollup.** The four projects build clean
+> under `--warnaserror`, the two-command quickstart works from cold, 400,000
+> deterministic time entries load in under a minute, and 58 integration tests run
+> against a real SQL Server container. Next is the index and its before/after
+> measurement; the CRUD surface follows. Sections below marked `TODO(measure)` are
 > deliberately empty — this repository's constitution forbids publishing performance
 > numbers that were not captured from a real run, so the placeholders stay visibly
 > empty until they are.
@@ -142,6 +143,47 @@ ORDER BY ...)`, `LAG()` and `DENSE_RANK()`.
 
 The procedure lives in `db/programmability/`, is written `CREATE OR ALTER`, and
 is applied by the bootstrap script — never by an EF migration.
+
+### Two questions it had to answer out loud
+
+Both are the kind that produce a plausible report either way, so the spec states
+a position and a test pins it.
+
+**A client who is inactive today still appears for the weeks it billed in.**
+Deactivation is forward-looking. A report on a past period describes what was
+billed then, and a client that left last year still has last year's revenue. The
+seed guarantees such clients exist, so the rule is testable rather than
+theoretical.
+
+**"The prior week" means the preceding *calendar* week, not the client's previous
+row.** A client that bills, goes quiet for three weeks, then bills again is
+compared against the silent week immediately before it — so the change is that
+week's hours in full, not the difference against the week it last billed in.
+Rows are still emitted only for weeks with activity; the gap is *detected*, not
+filled with zero rows, because materialising them would return 6,240 rows
+regardless of activity and collapse the ranking into a mass tie at zero.
+
+`null` in `hoursDeltaVsPriorWeek` means the preceding week falls outside the
+requested range. It does not mean zero, and coalescing it to zero misreports the
+first week of every report.
+
+### Weeks are identified by a day count, not a week number
+
+The obvious encoding — `isoYear * 100 + isoWeek` — is wrong every January and
+right the rest of the year. ISO week 1 of 2026 begins on Monday 29 December
+2025, and the week before it is 2025 week 52, so "last week" cannot be found by
+subtracting one from the week number.
+
+The procedure keys on `DATEDIFF(day, '19000101', WorkDate) / 7` instead. 1900-01-01
+was a Monday, so the ordinal increments by exactly one per calendar week across
+year boundaries, and — unlike `DATEPART(weekday, …)` — it does not shift with the
+caller's `SET DATEFIRST`. `LAG()` supplies the candidate previous row and a
+comparison against `ordinal - 1` decides whether that candidate is really last
+week or something older.
+
+A test covers exactly this intersection: a gap spanning New Year, where week-number
+arithmetic reports `+5.00` and the correct answer is `−3.00`. Neither a plain gap
+test nor a plain year-attribution test catches it alone.
 
 ## Performance
 
