@@ -1,5 +1,7 @@
+using LexTime.Application.Reporting;
 using LexTime.Infrastructure.Maintenance;
 using LexTime.Infrastructure.Persistence;
+using LexTime.Infrastructure.Reporting;
 using LexTime.Infrastructure.Seeding;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -52,6 +54,13 @@ public static class DependencyInjection
         services.AddScoped<BulkSeeder>();
         services.AddScoped<SeedVerifier>();
         services.AddSingleton(new DevelopmentTokenMinter(configuration));
+
+        // The reporting read path (constitution P5). Given the connection string directly
+        // rather than resolving one from the DbContext: this implementation exists to show
+        // reporting bypassing EF Core, and reaching into EF for its connection would make that
+        // claim untrue in the one line a reviewer would check it in.
+        services.AddScoped<IWeeklyBillableRollupReader>(
+            _ => new SqlWeeklyBillableRollupReader(connectionString));
 
         return services;
     }

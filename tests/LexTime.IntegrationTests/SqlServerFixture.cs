@@ -1,3 +1,4 @@
+using LexTime.Infrastructure.Maintenance;
 using LexTime.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -27,15 +28,20 @@ public sealed class SqlServerFixture : IAsyncLifetime
     public string ConnectionString => this.container.GetConnectionString();
 
     /// <summary>
-    /// Starts the container and brings the schema up to the latest migration.
+    /// Starts the container, brings the schema up to the latest migration, and applies the
+    /// source-controlled stored procedures.
     /// </summary>
-    /// <returns>A task that completes once the database is migrated and reachable.</returns>
+    /// <returns>A task that completes once the database is ready to be queried.</returns>
     public async Task InitializeAsync()
     {
         await this.container.StartAsync().ConfigureAwait(false);
 
-        await using var context = this.CreateContext();
-        await context.Database.MigrateAsync().ConfigureAwait(false);
+        await using (var context = this.CreateContext())
+        {
+            await context.Database.MigrateAsync().ConfigureAwait(false);
+        }
+
+        await ApplyProceduresAsync(this.ConnectionString).ConfigureAwait(false);
     }
 
     /// <summary>Stops and removes the container.</summary>
@@ -83,10 +89,58 @@ public sealed class SqlServerFixture : IAsyncLifetime
 
         var connectionString = this.ConnectionStringFor(databaseName);
 
-        await using var context = CreateContext(connectionString);
-        await context.Database.MigrateAsync().ConfigureAwait(false);
+        await using (var context = CreateContext(connectionString))
+        {
+            await context.Database.MigrateAsync().ConfigureAwait(false);
+        }
+
+        await ApplyProceduresAsync(connectionString).ConfigureAwait(false);
 
         return connectionString;
+    }
+
+    /// <summary>
+    /// Applies every procedure under <c>db/programmability</c> to the given database.
+    /// </summary>
+    /// <remarks>
+    /// Migrations alone were sufficient while that directory was empty. From feature 003 it is
+    /// not: without this step every rollup test fails with "could not find stored procedure",
+    /// which points at the fixture rather than at anything real.
+    /// </remarks>
+    /// <param name="connectionString">The database to apply them to.</param>
+    /// <returns>A task that completes once every procedure has been applied.</returns>
+    private static async Task ApplyProceduresAsync(string connectionString)
+    {
+        await using var context = CreateContext(connectionString);
+        await new ProcedureApplier(context)
+            .ApplyAllAsync(FindRepositoryRoot())
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Walks up from the test assembly's location looking for the solution file.
+    /// </summary>
+    /// <remarks>
+    /// <c>db/programmability</c> is a repository path and the tests run from
+    /// <c>bin/Debug/net9.0</c>. Anchored on <c>LexTime.sln</c> rather than a fixed number of
+    /// parent hops, so it survives a change of output path.
+    /// <para>
+    /// This duplicates the walk <c>MaintenanceCommands</c> does privately. Deliberate: six
+    /// lines with no state, against widening the API project's public surface for a third
+    /// caller that does not exist. If one appears, that is the point to extract it.
+    /// </para>
+    /// </remarks>
+    /// <returns>The repository root, or the current directory if no marker was found.</returns>
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "LexTime.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        return directory?.FullName ?? Directory.GetCurrentDirectory();
     }
 
     /// <summary>Creates a context bound to an explicit connection string.</summary>

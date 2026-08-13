@@ -1,3 +1,4 @@
+using LexTime.Application.Reporting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LexTime.Application;
@@ -9,20 +10,25 @@ namespace LexTime.Application;
 public static class DependencyInjection
 {
     /// <summary>
-    /// Registers the application layer's services.
+    /// Registers the application layer's use cases.
     /// </summary>
     /// <remarks>
-    /// Registers nothing today. This layer holds one handler class per use case, and
-    /// feature 001 has no use cases — its endpoints are a health check and a placeholder.
-    /// The project exists now because constitution P4 requires the four-project layering
-    /// unconditionally, and the reporting interface lands here with feature 003. The
-    /// method exists so that <c>Program.cs</c> does not change shape when it does.
+    /// One handler class per use case (constitution P4), registered here and injected into the
+    /// endpoint that invokes it. Handlers are scoped because the interfaces they depend on are
+    /// bound to per-request resources.
+    /// <para>
+    /// This method registered nothing through features 001 and 002 — the project existed
+    /// because P4 requires the layering unconditionally, and so that <c>Program.cs</c> would
+    /// not change shape when the first use case arrived. It has arrived.
+    /// </para>
     /// </remarks>
     /// <param name="services">The service collection to add registrations to.</param>
     /// <returns>The same collection, so calls can be chained.</returns>
     public static IServiceCollection AddLexTimeApplication(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        services.AddScoped<GetWeeklyBillableRollupHandler>();
 
         return services;
     }

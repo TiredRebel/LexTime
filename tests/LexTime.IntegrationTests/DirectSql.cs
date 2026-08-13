@@ -87,29 +87,45 @@ internal static class DirectSql
     /// <summary>
     /// Inserts a time entry with the given duration and work date.
     /// </summary>
+    /// <remarks>
+    /// <paramref name="isBillable"/> and <paramref name="hourlyRate"/> default to the values
+    /// this helper hard-coded before feature 003, so the constraint tests written against it
+    /// are unaffected. The rollup fixture needs both: a report that never sees a non-billable
+    /// entry or two clients at different rates cannot exercise its own arithmetic.
+    /// </remarks>
     /// <param name="context">Context supplying the connection.</param>
     /// <param name="userId">Timekeeper the entry belongs to.</param>
     /// <param name="matterId">Matter the entry is recorded against.</param>
     /// <param name="durationMinutes">Duration to attempt, valid or otherwise.</param>
     /// <param name="workDate">Billing date to attempt.</param>
+    /// <param name="isBillable">Whether the entry counts toward billable totals.</param>
+    /// <param name="hourlyRate">
+    /// Rate snapshotted onto the entry. A snapshot, not a lookup — the report multiplies by
+    /// this value and never by the timekeeper's current rate.
+    /// </param>
     /// <returns>A task that completes when the insert has been attempted.</returns>
     public static Task InsertTimeEntryAsync(
         LexTimeDbContext context,
         int userId,
         int matterId,
         int durationMinutes,
-        DateOnly workDate) =>
+        DateOnly workDate,
+        bool isBillable = true,
+        decimal hourlyRate = 350.00m) =>
         context.Database.ExecuteSqlRawAsync(
             """
             INSERT INTO dbo.TimeEntries
                 (UserId, MatterId, WorkDate, DurationMinutes, IsBillable,
                  HourlyRateSnapshot, Narrative, CreatedAtUtc)
-            VALUES (@userId, @matterId, @workDate, @duration, 1, 350.00, 'Test entry', SYSUTCDATETIME());
+            VALUES (@userId, @matterId, @workDate, @duration, @isBillable,
+                    @rate, 'Test entry', SYSUTCDATETIME());
             """,
             new SqlParameter("@userId", userId),
             new SqlParameter("@matterId", matterId),
             new SqlParameter("@workDate", workDate.ToDateTime(TimeOnly.MinValue)),
-            new SqlParameter("@duration", durationMinutes));
+            new SqlParameter("@duration", durationMinutes),
+            new SqlParameter("@isBillable", isBillable),
+            new SqlParameter("@rate", hourlyRate));
 
     /// <summary>
     /// Executes a statement that returns a single value.
