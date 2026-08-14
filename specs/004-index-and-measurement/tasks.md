@@ -32,9 +32,9 @@ that is later made true.
 
 **Purpose**: Get the index into the schema so everything downstream has something to toggle.
 
-- [ ] T001 Declare the covering index in `src/LexTime.Infrastructure/Persistence/Configurations/TimeEntryConfiguration.cs` — keyed on `WorkDate` and `IsBillable`, including `MatterId`, `DurationMinutes` and `HourlyRateSnapshot`, named `IX_TimeEntries_WorkDate_Billable`. **Replace, do not delete, the comment currently explaining that the index is deliberately absent**: it was true when written and is now false, and the reason the index arrived in its own feature is worth keeping (R1)
-- [ ] T002 Generate the EF migration for T001 into `src/LexTime.Infrastructure/Persistence/Migrations/` and read the generated file before accepting it — confirm it creates exactly the one index and touches nothing else. `dotnet-ef` is an authoring tool here; it stays out of the quickstart, which applies migrations in-process (feature 002 R0)
-- [ ] T003 [P] Correct the stale forward reference in `src/LexTime.Infrastructure/Seeding/SeedOptions.cs`, whose remarks credit "feature 003's index measurement" — that measurement is this feature (R10)
+- [X] T001 Declare the covering index in `src/LexTime.Infrastructure/Persistence/Configurations/TimeEntryConfiguration.cs` — keyed on `WorkDate` and `IsBillable`, including `MatterId`, `DurationMinutes` and `HourlyRateSnapshot`, named `IX_TimeEntries_WorkDate_Billable`. **Replace, do not delete, the comment currently explaining that the index is deliberately absent**: it was true when written and is now false, and the reason the index arrived in its own feature is worth keeping (R1)
+- [X] T002 Generate the EF migration for T001 into `src/LexTime.Infrastructure/Persistence/Migrations/` and read the generated file before accepting it — confirm it creates exactly the one index and touches nothing else. `dotnet-ef` is an authoring tool here; it stays out of the quickstart, which applies migrations in-process (feature 002 R0)
+- [X] T003 [P] Correct the stale forward reference in `src/LexTime.Infrastructure/Seeding/SeedOptions.cs`, whose remarks credit "feature 003's index measurement" — that measurement is this feature (R10)
 
 **Checkpoint**: a fresh clone's schema carries the index; `dotnet test` still green.
 
@@ -46,13 +46,13 @@ that is later made true.
 
 **⚠️ CRITICAL**: no user story work begins until this phase is complete.
 
-- [ ] T004 Create `src/LexTime.Infrastructure/Measurement/CoveringIndex.cs` holding the index name, its `CREATE` and `DROP` statements as constants, a presence check against `sys.indexes`, and idempotent create/drop helpers. Constants, not composed strings — R5 of feature 003 applies unchanged and a `CA2100` suppression here would be a design error
-- [ ] T005 [P] Create `src/LexTime.Infrastructure/Measurement/MeasurementReading.cs` with the `IndexState` and `RequestShape` enumerations and the reading and combination records from [data-model.md](./data-model.md). Document on `LogicalReads` that it is deterministic and on `ElapsedMilliseconds` that it is not — that asymmetry is the whole reporting convention
-- [ ] T006 Create `src/LexTime.Infrastructure/Measurement/RollupMeasurer.cs` able to run one reading: clear the buffer pool, execute the procedure with `SET STATISTICS IO`/`TIME` on, collect the messages through `SqlConnection.InfoMessage`, and parse the logical reads and elapsed time out of them. Keep the raw message text — it is committed verbatim later and is the reason the summary table can be audited (R3)
-- [ ] T007 Add plan capture to `RollupMeasurer`: a separate execution with `SET STATISTICS XML ON`, reading the plan from the additional result set. It is the **actual** plan with runtime counters, verified in R4. A second execution rather than one combined pass, because interleaving plan and data result sets buys nothing here and costs clarity
-- [ ] T008 [P] Register the measurer in `src/LexTime.Infrastructure/DependencyInjection.cs`, taking the connection string the method has already resolved — the same shape as the rollup reader
-- [ ] T009 Add the `measure` verb to `src/LexTime.Api/Maintenance/MaintenanceCommands.cs`: add it to `KnownVerbs`, parse `--readings`, `--output` and `--skip-single-client`, **ensure the index exists before doing anything else**, and restore it in a `finally`. Both defences are required and neither replaces the other — see R7 and the contract at [contracts/measure-verb.md](./contracts/measure-verb.md)
-- [ ] T010 Extend `src/LexTime.Infrastructure/Maintenance/DatabaseStateInspector.cs` to report whether the covering index is present, and surface it in the `state` verb's output. The third R7 defence: `state` is where a developer asks what condition the database is in, so it is where "the migration is applied but the index is gone" has to be answerable
+- [X] T004 Create `src/LexTime.Infrastructure/Measurement/CoveringIndex.cs` holding the index name, its `CREATE` and `DROP` statements as constants, a presence check against `sys.indexes`, and idempotent create/drop helpers. Constants, not composed strings — R5 of feature 003 applies unchanged and a `CA2100` suppression here would be a design error
+- [X] T005 [P] Create `src/LexTime.Infrastructure/Measurement/MeasurementReading.cs` with the `IndexState` and `RequestShape` enumerations and the reading and combination records from [data-model.md](./data-model.md). Document on `LogicalReads` that it is deterministic and on `ElapsedMilliseconds` that it is not — that asymmetry is the whole reporting convention
+- [X] T006 Create `src/LexTime.Infrastructure/Measurement/RollupMeasurer.cs` able to run one reading: clear the buffer pool, execute the procedure with `SET STATISTICS IO`/`TIME` on, collect the messages through `SqlConnection.InfoMessage`, and parse the logical reads and elapsed time out of them. Keep the raw message text — it is committed verbatim later and is the reason the summary table can be audited (R3)
+- [X] T007 Add plan capture to `RollupMeasurer`: a separate execution with `SET STATISTICS XML ON`, reading the plan from the additional result set. It is the **actual** plan with runtime counters, verified in R4. A second execution rather than one combined pass, because interleaving plan and data result sets buys nothing here and costs clarity
+- [X] T008 [P] Register the measurer in `src/LexTime.Infrastructure/DependencyInjection.cs`, taking the connection string the method has already resolved — the same shape as the rollup reader
+- [X] T009 Add the `measure` verb to `src/LexTime.Api/Maintenance/MaintenanceCommands.cs`: add it to `KnownVerbs`, parse `--readings`, `--output` and `--skip-single-client`, **ensure the index exists before doing anything else**, and restore it in a `finally`. Both defences are required and neither replaces the other — see R7 and the contract at [contracts/measure-verb.md](./contracts/measure-verb.md)
+- [X] T010 Extend `src/LexTime.Infrastructure/Maintenance/DatabaseStateInspector.cs` to report whether the covering index is present, and surface it in the `state` verb's output. The third R7 defence: `state` is where a developer asks what condition the database is in, so it is where "the migration is applied but the index is gone" has to be answerable
 
 **Checkpoint**: `measure` runs, produces readings for one combination, and leaves the index in place.
 
@@ -70,13 +70,13 @@ alone — a faster report whose correctness is demonstrably untouched.
 > Write these first. Against the schema from Phase 1 the presence test passes immediately; the
 > equivalence test is the one that must be seen to exercise both states.
 
-- [ ] T011 [P] [US1] Create `tests/LexTime.IntegrationTests/CoveringIndexTests.cs` with a test asserting the index exists on a freshly migrated database, by name and with the expected key and included columns — not merely that an index of that name exists, or a renamed stub would pass
-- [ ] T012 [US1] Add the equivalence test to `CoveringIndexTests.cs`: seed a small fixture, run the rollup, drop the index, run again, compare every field of every row **including order**, then restore the index. Assert the restore in the test itself, so a failure cannot leave the shared container's database degraded for the tests that follow
+- [X] T011 [P] [US1] Create `tests/LexTime.IntegrationTests/CoveringIndexTests.cs` with a test asserting the index exists on a freshly migrated database, by name and with the expected key and included columns — not merely that an index of that name exists, or a renamed stub would pass
+- [X] T012 [US1] Add the equivalence test to `CoveringIndexTests.cs`: seed a small fixture, run the rollup, drop the index, run again, compare every field of every row **including order**, then restore the index. Assert the restore in the test itself, so a failure cannot leave the shared container's database degraded for the tests that follow
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Add result hashing to `RollupMeasurer` — a stable hash over the ordered result set — and compare the two index states' hashes in the `measure` verb. A mismatch exits `VerificationFailed` and says which shape disagreed. This is SC-001's full-scale claim: no test can load 400,000 entries, and the measurement reads both result sets anyway (R8)
-- [ ] T014 [US1] Run the full existing suite and confirm every feature-003 test passes **with no expected value edited**. Under FR-004, an edit to any expected figure in `WeeklyBillableRollupTests` is a defect in this feature, not an update — a test adjusted to agree with the index has been made useless
+- [X] T013 [US1] Add result hashing to `RollupMeasurer` — a stable hash over the ordered result set — and compare the two index states' hashes in the `measure` verb. A mismatch exits `VerificationFailed` and says which shape disagreed. This is SC-001's full-scale claim: no test can load 400,000 entries, and the measurement reads both result sets anyway (R8)
+- [X] T014 [US1] Run the full existing suite and confirm every feature-003 test passes **with no expected value edited**. Under FR-004, an edit to any expected figure in `WeeklyBillableRollupTests` is a defect in this feature, not an update — a test adjusted to agree with the index has been made useless
 
 **Checkpoint**: the index ships and is proved harmless. MVP.
 

@@ -52,6 +52,22 @@ public sealed class DatabaseStateInspector(LexTimeDbContext context)
         var matters = await context.Matters.CountAsync(cancellationToken).ConfigureAwait(false);
         var entries = await context.TimeEntries.CountAsync(cancellationToken).ConfigureAwait(false);
 
+        // Asked separately from the migration history, because the two can disagree. EF records
+        // that a migration ran; it does not check that the objects it created still exist. An
+        // index dropped by hand — which is exactly what an interrupted measurement leaves
+        // behind — is never restored by re-running `migrate`, and the database goes on
+        // reporting itself fully migrated while the rollup is quietly slower than the
+        // repository claims. This is the one place a developer asks what condition the database
+        // is in, so it is where that has to be answerable.
+        var connection = (Microsoft.Data.SqlClient.SqlConnection)context.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        var hasCoveringIndex = await Measurement.CoveringIndex
+            .ExistsAsync(connection, cancellationToken).ConfigureAwait(false);
+
         var state = (users, clients, matters, entries) switch
         {
             (0, 0, 0, 0) => SeedState.Empty,
@@ -62,7 +78,7 @@ public sealed class DatabaseStateInspector(LexTimeDbContext context)
             _ => SeedState.Partial,
         };
 
-        return new DatabaseStateReport(state, users, clients, matters, entries);
+        return new DatabaseStateReport(state, users, clients, matters, entries, hasCoveringIndex);
     }
 }
 
@@ -72,9 +88,15 @@ public sealed class DatabaseStateInspector(LexTimeDbContext context)
 /// <param name="Clients">Rows in <c>dbo.Clients</c>.</param>
 /// <param name="Matters">Rows in <c>dbo.Matters</c>.</param>
 /// <param name="TimeEntries">Rows in <c>dbo.TimeEntries</c>.</param>
+/// <param name="HasCoveringIndex">
+/// Whether the rollup's covering index is present. <see langword="false"/> on a fully migrated
+/// database means an interrupted measurement left it dropped — a state re-running <c>migrate</c>
+/// will not repair, because migration history says the work was already done.
+/// </param>
 public sealed record DatabaseStateReport(
     SeedState State,
     int Users,
     int Clients,
     int Matters,
-    int TimeEntries);
+    int TimeEntries,
+    bool HasCoveringIndex);

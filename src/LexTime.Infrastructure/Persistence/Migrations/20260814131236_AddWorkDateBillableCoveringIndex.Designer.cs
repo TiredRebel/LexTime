@@ -4,6 +4,7 @@ using LexTime.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LexTime.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LexTimeDbContext))]
-    partial class LexTimeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260814131236_AddWorkDateBillableCoveringIndex")]
+    partial class AddWorkDateBillableCoveringIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

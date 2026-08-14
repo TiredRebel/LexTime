@@ -8,7 +8,7 @@ namespace LexTime.Infrastructure.Seeding;
 /// <para>
 /// First, it is the <em>only</em> source of variation. The generator reads no clock, no
 /// machine entropy and no environment — given the same options it produces the same rows,
-/// which is what makes feature 003's index measurement comparable between runs
+/// which is what makes the index before/after measurement comparable between runs
 /// (constitution P8, FR-020).
 /// </para>
 /// <para>
