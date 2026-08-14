@@ -3,15 +3,12 @@
 A minimal timekeeping API for legal billing — .NET 9, SQL Server 2022, and one
 stored procedure that does the interesting work.
 
-> **Status: features 001–003 complete — solution, schema, seeded data, health,
-> access boundary, and the weekly billable rollup.** The four projects build clean
-> under `--warnaserror`, the two-command quickstart works from cold, 400,000
-> deterministic time entries load in under a minute, and 58 integration tests run
-> against a real SQL Server container. Next is the index and its before/after
-> measurement; the CRUD surface follows. Sections below marked `TODO(measure)` are
-> deliberately empty — this repository's constitution forbids publishing performance
-> numbers that were not captured from a real run, so the placeholders stay visibly
-> empty until they are.
+> **Status: features 001–004 complete — solution, schema, seeded data, health,
+> access boundary, the weekly billable rollup, and its measured index.** The four
+> projects build clean under `--warnaserror`, the two-command quickstart works from
+> cold, 400,000 deterministic time entries load in under a minute, and 61 integration
+> tests run against a real SQL Server container. The performance figures below are
+> captured from a run you can repeat with one command. The CRUD surface is next.
 
 ---
 
@@ -196,15 +193,39 @@ CREATE NONCLUSTERED INDEX IX_TimeEntries_WorkDate_Billable
     INCLUDE (MatterId, DurationMinutes, HourlyRateSnapshot);
 ```
 
+Measured over the full 24-month seeded range, five readings per state, buffer
+pool cleared before each:
+
 | Metric | Before index | After index |
 | --- | --- | --- |
-| Logical reads | `TODO(measure)` | `TODO(measure)` |
-| Elapsed (ms) | `TODO(measure)` | `TODO(measure)` |
-| Plan shape | `TODO(measure)` | `TODO(measure)` |
+| Logical reads | 6,879 | **1,768** |
+| Elapsed, median | 132 ms | 112 ms |
+| **CPU time** | **847 ms** | **105 ms** |
+| Plan shape | clustered index scan, parallel, 4 sorts | index seek, serial, 3 sorts |
 
-Execution plans and raw `SET STATISTICS IO, TIME ON` output go in
-`docs/performance.md`. If the measured improvement turns out to be
-unimpressive, the unimpressive number is what gets published.
+**The elapsed figure is the least interesting one, and it is the one most people
+would quote.** The un-indexed plan spent 847 ms of processor time to deliver
+137 ms of wall clock — it was parallelising its way around a full-table scan,
+burning six threads' worth of work to hide the cost behind a shorter wait. The
+indexed plan does the same job with 105 ms of CPU on one thread. On an idle
+laptop that reads as a modest 15% improvement; under concurrency it is the
+difference between a report costing one core-second and one costing eight.
+
+A second finding, from measuring the single-client path separately: it reads
+*exactly* as much as the unfiltered one — 6,879 and 1,768, identical to the
+digit. Filtering to one client returns 105 rows instead of 5,775 and saves not a
+single page, because the report ranks every client before narrowing to one. That
+is a deliberate design decision, and this is its price.
+
+Full method, per-table breakdown, the honest limits, and the committed execution
+plans and raw `SET STATISTICS IO, TIME` captures: **[docs/performance.md](docs/performance.md)**.
+
+Reproduce it yourself — the read counts will match exactly, the milliseconds will
+not:
+
+```powershell
+dotnet run --project src/LexTime.Api measure
+```
 
 ## Testing
 

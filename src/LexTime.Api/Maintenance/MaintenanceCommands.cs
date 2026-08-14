@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Globalization;
 using LexTime.Infrastructure.Maintenance;
+using LexTime.Infrastructure.Measurement;
 using LexTime.Infrastructure.Seeding;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,7 +20,7 @@ public static class MaintenanceCommands
 {
     /// <summary>Verbs this class recognises, for the usage message.</summary>
     private static readonly string[] KnownVerbs =
-        ["migrate", "apply-procedures", "seed", "verify-seed", "state", "mint-token"];
+        ["migrate", "apply-procedures", "seed", "verify-seed", "state", "mint-token", "measure"];
 
     /// <summary>
     /// Whether these arguments ask for a maintenance verb rather than a web host.
@@ -75,6 +76,8 @@ public static class MaintenanceCommands
                 "verify-seed" => await VerifySeedAsync(scope.ServiceProvider, args, cancellationToken)
                     .ConfigureAwait(false),
                 "mint-token" => MintToken(scope.ServiceProvider),
+                "measure" => await MeasureAsync(scope.ServiceProvider, args, cancellationToken)
+                    .ConfigureAwait(false),
                 _ => NotYetImplemented(verb),
             };
         }
@@ -113,6 +116,108 @@ public static class MaintenanceCommands
         }
 
         return options;
+    }
+
+    /// <summary>
+    /// Measures the rollup with and without the covering index, and writes the evidence.
+    /// </summary>
+    /// <remarks>
+    /// Contract: <c>specs/004-index-and-measurement/contracts/measure-verb.md</c>.
+    /// <para>
+    /// It reports; it does not judge. A modest improvement is a result, not a failure —
+    /// constitution P8 makes the measurement the claim, and a verb that failed on a
+    /// disappointing number would be an instruction to keep running it until it said something
+    /// better. The one thing it does fail on is the two index states disagreeing about what the
+    /// report returns, which would mean the index changed the answer.
+    /// </para>
+    /// </remarks>
+    /// <param name="scoped">Scoped service provider.</param>
+    /// <param name="args">
+    /// Process arguments; <c>--readings</c>, <c>--output</c> and <c>--skip-single-client</c> are
+    /// honoured here.
+    /// </param>
+    /// <param name="cancellationToken">Cancels the operation.</param>
+    /// <returns>A process exit code.</returns>
+    private static async Task<int> MeasureAsync(
+        IServiceProvider scoped,
+        string[] args,
+        CancellationToken cancellationToken)
+    {
+        var readings = ResolveInt(args, "--readings", 5);
+
+        // Resolved against the repository root, not the working directory. `dotnet run` sets
+        // the working directory to the project folder, so a relative default would write the
+        // committed evidence into src/LexTime.Api/docs — which is both wrong and easy not to
+        // notice, because the run reports success either way.
+        var output = ResolveValue(args, "--output")
+            ?? Path.Combine(FindRepositoryRoot(), "docs", "performance");
+        var includeSingleClient = !args.Contains("--skip-single-client", StringComparer.Ordinal);
+
+        // Said before anything runs, not in a footnote afterwards.
+        Console.WriteLine(
+            "Each reading clears the SQL Server buffer pool. That is instance-wide, not " +
+            "database-wide — safe against the local container, unwelcome against anything shared.");
+
+        var session = new MeasurementSession(
+            scoped.GetRequiredService<RollupMeasurer>(),
+            scoped.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>()
+                .GetConnectionString(LexTime.Infrastructure.DependencyInjection.ConnectionStringName)!);
+
+        var results = await session
+            .RunAsync(readings, output, includeSingleClient, Console.WriteLine, cancellationToken)
+            .ConfigureAwait(false);
+
+        Console.WriteLine();
+        Console.WriteLine(
+            $"{"shape",-14}{"index",-16}{"logical reads",16}{"median ms",12}{"range ms",16}{"rows",8}");
+
+        foreach (var r in results)
+        {
+            Console.WriteLine(
+                $"{r.Shape,-14}{r.State,-16}{r.LogicalReads,16:N0}{r.ElapsedMedian,12:N0}" +
+                $"{$"{r.ElapsedMin:N0}-{r.ElapsedMax:N0}",16}{r.RowCount,8:N0}");
+        }
+
+        var failures = MeasurementSession.FindEquivalenceFailures(results);
+        Console.WriteLine();
+
+        if (failures.Count > 0)
+        {
+            Console.Error.WriteLine(
+                "The index changed what the report returns, for: " +
+                $"{string.Join(", ", failures)}. This is a correctness failure, not a " +
+                "performance one, and nothing measured above should be published.");
+            return ExitCodes.VerificationFailed;
+        }
+
+        Console.WriteLine("equivalence: both index states returned identical results.");
+        Console.WriteLine($"written to {Path.GetFullPath(output)}");
+
+        return ExitCodes.Success;
+    }
+
+    /// <summary>Reads a named integer argument.</summary>
+    /// <param name="args">Process arguments.</param>
+    /// <param name="name">The switch to look for.</param>
+    /// <param name="fallback">Value to use when the switch is absent.</param>
+    /// <returns>The parsed value, or the fallback.</returns>
+    /// <exception cref="FormatException">The value after the switch is not a number.</exception>
+    private static int ResolveInt(string[] args, string name, int fallback)
+    {
+        var value = ResolveValue(args, name);
+
+        return value is null ? fallback : int.Parse(value, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Reads the value following a named switch.</summary>
+    /// <param name="args">Process arguments.</param>
+    /// <param name="name">The switch to look for.</param>
+    /// <returns>The following argument, or <see langword="null"/> when absent.</returns>
+    private static string? ResolveValue(string[] args, string name)
+    {
+        var index = Array.IndexOf(args, name);
+
+        return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
     }
 
     /// <summary>Applies migrations, optionally dropping the database first.</summary>
@@ -165,6 +270,13 @@ public static class MaintenanceCommands
         Console.WriteLine(
             $"users={report.Users} clients={report.Clients} " +
             $"matters={report.Matters} entries={report.TimeEntries}");
+
+        // Reported separately from the migration count, because a fully migrated database can
+        // still be missing this index — `migrate` compares history, not schema, and will not
+        // put back something an interrupted measurement dropped.
+        Console.WriteLine(report.HasCoveringIndex
+            ? $"covering index {CoveringIndex.Name}: present"
+            : $"covering index {CoveringIndex.Name}: MISSING — run `measure` to restore it");
 
         return ExitCodes.Success;
     }

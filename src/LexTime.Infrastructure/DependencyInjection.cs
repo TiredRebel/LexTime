@@ -1,5 +1,6 @@
 using LexTime.Application.Reporting;
 using LexTime.Infrastructure.Maintenance;
+using LexTime.Infrastructure.Measurement;
 using LexTime.Infrastructure.Persistence;
 using LexTime.Infrastructure.Reporting;
 using LexTime.Infrastructure.Seeding;
@@ -61,6 +62,11 @@ public static class DependencyInjection
         // claim untrue in the one line a reviewer would check it in.
         services.AddScoped<IWeeklyBillableRollupReader>(
             _ => new SqlWeeklyBillableRollupReader(connectionString));
+
+        // The index before/after measurement. Reached only through the `measure` verb, never
+        // through an endpoint: it clears the server's buffer pool and drops an index, which is
+        // a developer operation and not something an HTTP request may ask for.
+        services.AddScoped(_ => new RollupMeasurer(connectionString));
 
         return services;
     }

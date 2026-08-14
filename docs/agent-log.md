@@ -258,6 +258,85 @@ destroyed the property the index before/after measurement depends on.
 
 ---
 
+## Feature 004 — index and measured performance
+
+### 19. A measurement that confidently reported zero
+
+**Generated**: a reader loop that consumed the rollup's rows, hashed them, and disposed the
+reader.
+
+**Symptom**: the first full run produced a clean summary table in which **every logical read
+count was zero** and every elapsed time was a single or double digit. Nothing failed. The
+equivalence check passed. The plans were captured correctly, at 200 KB each, so the procedure
+had plainly executed.
+
+**Caught by**: the committed raw output — the very file that exists so the summary can be
+audited rather than trusted. It contained the `STATISTICS TIME` lines for the `SET` statements
+and nothing at all from the procedure: no `Table '...'. Scan count` lines, no execution time
+that resembled the query. That gap named the cause almost immediately.
+
+**Cause**: SQL Server sends `STATISTICS IO` and `TIME` output as info messages **after the final
+result set**. A reader disposed while anything is still pending discards them. The loop read the
+first result set, stopped, and threw the measurement away. The Phase 0 probe had not caught it
+because that probe drained with `NextResultAsync` — for unrelated reasons, and the difference
+went unnoticed when the loop was written.
+
+**Resolution**: drain to the end of the stream before disposing, with a comment saying why,
+because reading the first result set and stopping is the obvious way to write that loop.
+
+**Worth recording for what nearly happened.** Zero logical reads for both index states is a
+result that could have been written up — "the index makes no measurable difference to reads" is
+a sentence someone could publish with a straight face, and the equivalence check would have
+gone on passing underneath it. What prevented that was a rule adopted before the code existed:
+commit the raw output verbatim next to the summary. The discipline caught the bug before the
+bug reached the document.
+
+### 20. Published figures that stopped matching their own evidence
+
+**Symptom**: after `docs/performance.md` was written from the first good run, a second run was
+made to confirm reproducibility. It confirmed it — identical read counts, identical hashes,
+different milliseconds, exactly as claimed. It also **overwrote the raw capture files**. The
+document's CPU figures now said 837 ms and 103 ms; the committed evidence beside it said 776 and
+91.
+
+**Caught by**: checking, rather than assuming. The reproducibility run was made specifically to
+test a claim, and re-reading the files afterwards was part of testing it.
+
+**Cause**: the reduced figures — medians, ranges — only ever existed on stdout. The per-reading
+captures were committed and the reduction was not, so half the published table had no committed
+source and nothing tied the two together. Re-running the measurement then silently de-linked the
+rest.
+
+**Resolution**: the verb now writes `summary.txt` alongside the raw captures, so a run's reduced
+figures are committed with the evidence they came from. The document was rewritten from a single
+authoritative run, and every published number was then verified to appear in a committed file
+before the commit was made.
+
+**The rule this violated was written by this feature, in its own contract, before any code
+existed**: *every number comes from a committed raw file*. It was still broken within an hour of
+being written — not by ignoring it, but by not noticing that the medians were never covered by
+it. A provenance rule is only as good as the mechanism that keeps it true; being careful is not
+a mechanism.
+
+### 21. CA2100, predicted and then not suppressed
+
+**Symptom**: the build failed with `CA2100` on a private helper in `RollupMeasurer` that took
+its SQL as a `string` parameter.
+
+**Cause**: passing a constant through a parameter hides it from the analyzer, which then
+correctly reports that it cannot see where the text came from.
+
+**Resolution**: the helper takes a constructed `SqlCommand` instead, so each call site builds it
+from a constant the analyzer can see. **No suppression was added.**
+
+Recorded not because it was hard, but because the plan predicted it. `research.md` R5 stated in
+advance that a `CA2100` in this feature would be a design error rather than a finding to
+justify, and the task list repeated it. When it appeared, the decision had already been made and
+took no argument. Writing down what a future warning would *mean* turned out to be worth more
+than writing down how to handle it.
+
+---
+
 ## Feature 003 — weekly billable rollup
 
 ### 16. A contract fixed in one place and drifted from in another
@@ -357,6 +436,42 @@ the patched version itself, so it does not calcify into a mystery.
 make the message disappear. That would have silenced every future transitive finding as
 well, including ones that matter, and it would have done so in a way no reviewer could see.
 P24 exists to make that trade explicit rather than convenient.
+
+---
+
+## Security review — feature 004 (constitution P24)
+
+This feature executes DDL and a `DBCC` command, so P24 applies. Reviewed before commit.
+
+**Zero new analyzer suppressions**, and one avoided deliberately. `CA2100` fired on a helper
+that took its SQL as a parameter; the response was to restructure so the analyzer can see the
+constants, not to suppress it. Entry 21 above records that the plan had already decided this.
+The repository's three existing `CA2100` suppressions are unchanged and `.editorconfig` still
+holds the rule at `error`.
+
+**Every statement is a constant.** The `CREATE INDEX`, `DROP INDEX`, `sys.indexes` probe,
+`CHECKPOINT`, `DBCC DROPCLEANBUFFERS` and the `SET STATISTICS` toggles are all `const string`
+fields. The procedure is still invoked through `CommandType.StoredProcedure` with typed
+parameters. **Nothing the verb accepts reaches SQL**: `--readings` is parsed to an `int`,
+`--output` is a filesystem path, `--skip-single-client` is a flag, and the single-client
+identifier is read from the database rather than supplied.
+
+**The destructive operations are reachable only from the command line.** `RollupMeasurer` and
+`MeasurementSession` are registered in DI but no endpoint resolves them, and the `measure` verb
+runs instead of the web host rather than alongside it. Dropping an index and clearing a server's
+buffer pool are developer operations; an HTTP request must not be able to ask for either.
+
+**Two things accepted rather than fixed**, both recorded so they read as decisions:
+
+- **`DBCC DROPCLEANBUFFERS` affects the whole instance.** It is required for a comparable
+  measurement and there is no database-scoped equivalent. Mitigated by saying so — the verb
+  warns before its first reading and `docs/performance.md` repeats it — rather than by pretending
+  the scope is narrower than it is.
+- **The measurement briefly leaves the schema without an index.** Unavoidable: that state is
+  what is being measured. Mitigated three ways rather than one — restore in a `finally`, ensure
+  on entry so a crashed run heals instead of mislabelling the next one, and `state` reporting
+  presence so the condition is visible at all. The middle defence is the one that matters and
+  the one easiest to leave out.
 
 ---
 

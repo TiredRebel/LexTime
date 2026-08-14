@@ -40,16 +40,31 @@ public sealed class TimeEntryConfiguration : IEntityTypeConfiguration<TimeEntry>
             .HasForeignKey(e => e.MatterId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Two things are deliberately absent here. Neither is an oversight.
+        // The covering index for dbo.usp_WeeklyBillableRollup, and the only index this schema
+        // carries beyond its keys.
         //
-        // 1. No constraint on WorkDate. The 90-day backdating limit governs what may be
-        //    submitted through the API, not what may exist. Enforcing it in the schema
-        //    would reject the 24 months of history feature 002 seeds, and would make the
-        //    database progressively reject its own contents as time passed.
-        //    WorkDateConstraintTests asserts a three-year-old date is accepted.
+        // Key columns are what the report filters and splits on: a WorkDate range in the
+        // WHERE, and IsBillable deciding which side of every figure each row lands on.
+        // Included columns are the only other columns the report reads from this table —
+        // MatterId reaches the client, DurationMinutes feeds both hour totals,
+        // HourlyRateSnapshot feeds the amount. Together they make the index covering, so the
+        // query can be answered without returning to the clustered index per row.
         //
-        // 2. No covering index on (WorkDate, IsBillable). Its absence is the baseline
-        //    feature 003 measures the rollup against; adding it here destroys the
-        //    before/after comparison constitution P8 requires.
+        // UserId and Narrative are deliberately not included. The report never reads them,
+        // and every included column is paid for on every write.
+        //
+        // This arrived in feature 004 rather than with the schema, on purpose. Feature 003
+        // shipped the rollup against the un-indexed table so that the before/after
+        // measurement constitution P8 requires had a real "before" to measure rather than a
+        // manufactured one. docs/performance.md holds the numbers.
+        builder.HasIndex(e => new { e.WorkDate, e.IsBillable })
+            .HasDatabaseName("IX_TimeEntries_WorkDate_Billable")
+            .IncludeProperties(e => new { e.MatterId, e.DurationMinutes, e.HourlyRateSnapshot });
+
+        // Still deliberately absent: any constraint on WorkDate. The 90-day backdating limit
+        // governs what may be submitted through the API, not what may exist. Enforcing it in
+        // the schema would reject the 24 months of history feature 002 seeds, and would make
+        // the database progressively reject its own contents as time passed.
+        // WorkDateConstraintTests asserts a three-year-old date is accepted.
     }
 }
