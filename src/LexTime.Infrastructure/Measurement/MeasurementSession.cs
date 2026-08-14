@@ -24,13 +24,20 @@ public sealed class MeasurementSession(RollupMeasurer measurer, string connectio
     /// The busiest rather than an arbitrary one, so the shape is reproducible from the
     /// committed seed and its row count is nowhere near zero. Derived rather than hard-coded,
     /// so it stays correct if the seed's shape is ever regenerated.
+    /// <para>
+    /// <c>ClientId</c> breaks ties. Without it <c>TOP (1)</c> over equal totals returns whichever
+    /// row the plan happened to produce first, and the measurement would silently compare two
+    /// runs of different clients — in a feature whose entire premise is that two runs are
+    /// comparable. The seed's activity is heavily skewed so a tie at the top is most unlikely;
+    /// the point is that "unlikely" is not the standard this repository is measuring against.
+    /// </para>
     /// </remarks>
     private const string BusiestClientQuery = """
         SELECT TOP (1) m.ClientId
         FROM dbo.TimeEntries AS te
         INNER JOIN dbo.Matters AS m ON m.MatterId = te.MatterId
         GROUP BY m.ClientId
-        ORDER BY SUM(CAST(te.DurationMinutes AS bigint)) DESC;
+        ORDER BY SUM(CAST(te.DurationMinutes AS bigint)) DESC, m.ClientId;
         """;
 
     /// <summary>
@@ -101,7 +108,48 @@ public sealed class MeasurementSession(RollupMeasurer measurer, string connectio
             await CoveringIndex.EnsureAsync(connection, CancellationToken.None).ConfigureAwait(false);
         }
 
+        await WriteSummaryAsync(results, outputDirectory, cancellationToken).ConfigureAwait(false);
+
         return results;
+    }
+
+    /// <summary>
+    /// Writes the reduced figures to a committed file.
+    /// </summary>
+    /// <remarks>
+    /// Without this the medians and ranges exist only on the terminal, and the published
+    /// document's rule that every figure traces to a committed file quietly fails for half of
+    /// them. Worse, a later run overwrites the per-reading captures while the document goes on
+    /// quoting the earlier ones — the numbers stop matching their own evidence and nothing
+    /// says so. Committing the reduction alongside the raw output is what keeps the two in
+    /// step.
+    /// </remarks>
+    /// <param name="results">The measured combinations.</param>
+    /// <param name="outputDirectory">Where to write.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns>A task that completes once the summary is on disk.</returns>
+    private static async Task WriteSummaryAsync(
+        IReadOnlyList<MeasuredCombination> results,
+        string outputDirectory,
+        CancellationToken cancellationToken)
+    {
+        var lines = new List<string>
+        {
+            "Reduced figures for the run whose raw captures sit beside this file.",
+            "Logical reads are one figure because every reading agreed; elapsed times are a",
+            "median with the full range across readings.",
+            string.Empty,
+            $"{"shape",-14}{"index",-14}{"logical reads",15}{"median ms",11}{"min ms",9}{"max ms",9}{"rows",8}  result hash",
+        };
+
+        lines.AddRange(results.Select(r =>
+            $"{r.Shape,-14}{r.State,-14}{r.LogicalReads,15:N0}{r.ElapsedMedian,11:N0}" +
+            $"{r.ElapsedMin,9:N0}{r.ElapsedMax,9:N0}{r.RowCount,8:N0}  {r.ResultHash[..16]}"));
+
+        await File.WriteAllLinesAsync(
+            Path.Combine(outputDirectory, "summary.txt"),
+            lines,
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

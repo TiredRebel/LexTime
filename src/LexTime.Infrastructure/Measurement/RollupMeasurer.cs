@@ -255,6 +255,18 @@ public sealed partial class RollupMeasurer(string connectionString)
             rows++;
         }
 
+        // Drain to the end of the stream before the reader is disposed.
+        //
+        // Not tidiness. SQL Server sends the STATISTICS IO and TIME output as info messages
+        // *after* the final result set, so a reader disposed while anything is still pending
+        // discards them — and the measurement then reports zero logical reads with nothing
+        // having failed. Reading the first result set and stopping is the obvious way to write
+        // this loop, and it silently loses the one thing this feature exists to capture.
+        while (await reader.NextResultAsync(cancellationToken).ConfigureAwait(false))
+        {
+            // Nothing to read here; advancing is what flushes the messages.
+        }
+
         return (rows, Convert.ToHexString(hasher.GetHashAndReset()));
     }
 

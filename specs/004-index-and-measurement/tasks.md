@@ -90,15 +90,15 @@ published.
 **Independent Test**: follow `quickstart.md` on a seeded environment and compare the read counts
 obtained against the published ones.
 
-- [ ] T015 [US2] Add cache control to each reading in `RollupMeasurer`: `CHECKPOINT` then `DBCC DROPCLEANBUFFERS`, applied identically to both index states. Print the instance-wide warning from [contracts/measure-verb.md](./contracts/measure-verb.md) before the first reading — it clears the buffer pool for the whole server, which is fine on the quickstart's container and unwelcome anywhere else (R5)
-- [ ] T016 [US2] Take five readings per combination in the `measure` verb and reduce them: logical reads as a single figure because every reading agrees, elapsed time as a median with its minimum and maximum. If the read counts ever disagree between readings, fail rather than average — that would mean something is varying that should not (R6)
-- [ ] T017 [P] [US2] Write the verbatim statistics capture to `docs/performance/statistics-{shape}-{state}.txt` — exactly as the server sent it, unreformatted, unrounded, untrimmed. This file is what makes the published table auditable rather than merely believable (R3)
-- [ ] T018 [P] [US2] Write the captured plans to `docs/performance/plan-{shape}-{state}.sqlplan`, openable in SSMS or Azure Data Studio (FR-008)
-- [ ] T019 [US2] Print the summary table to stdout: combination, logical reads, elapsed median and range, row count, equivalence verdict, then the paths written
-- [ ] T020 [US2] **Run the measurement** against the fully seeded local database and commit the artefacts it produced. This is the first task in the feature permitted to produce a number
-- [ ] T021 [US2] Write `docs/performance.md` from the captured files, following [contracts/performance-document.md](./contracts/performance-document.md): method before results, the index and what each column is for, the results table, the plan-shape paragraph, the honest limits, and the reproduction steps. **Every figure traced to a committed raw file.** If the improvement is modest, say so and say why — FR-018 forbids reaching for a bigger dataset instead
-- [ ] T022 [US2] Replace the four `TODO(measure)` placeholders in `README.md` with captured figures, and update the status banner. No placeholder may remain anywhere in the repository (FR-019)
-- [ ] T023 [US2] Run `measure` a second time and confirm the logical read counts and result hashes are identical to the first run while the elapsed times differ. That contrast is the evidence for how the two kinds of figure are weighted, and SC-004 is the assertion (FR-016)
+- [X] T015 [US2] Add cache control to each reading in `RollupMeasurer`: `CHECKPOINT` then `DBCC DROPCLEANBUFFERS`, applied identically to both index states. Print the instance-wide warning from [contracts/measure-verb.md](./contracts/measure-verb.md) before the first reading — it clears the buffer pool for the whole server, which is fine on the quickstart's container and unwelcome anywhere else (R5)
+- [X] T016 [US2] Take five readings per combination in the `measure` verb and reduce them: logical reads as a single figure because every reading agrees, elapsed time as a median with its minimum and maximum. If the read counts ever disagree between readings, fail rather than average — that would mean something is varying that should not (R6)
+- [X] T017 [P] [US2] Write the verbatim statistics capture to `docs/performance/statistics-{shape}-{state}.txt` — exactly as the server sent it, unreformatted, unrounded, untrimmed. This file is what makes the published table auditable rather than merely believable (R3)
+- [X] T018 [P] [US2] Write the captured plans to `docs/performance/plan-{shape}-{state}.sqlplan`, openable in SSMS or Azure Data Studio (FR-008)
+- [X] T019 [US2] Print the summary table to stdout: combination, logical reads, elapsed median and range, row count, equivalence verdict, then the paths written
+- [X] T020 [US2] **Run the measurement** against the fully seeded local database and commit the artefacts it produced. This is the first task in the feature permitted to produce a number
+- [X] T021 [US2] Write `docs/performance.md` from the captured files, following [contracts/performance-document.md](./contracts/performance-document.md): method before results, the index and what each column is for, the results table, the plan-shape paragraph, the honest limits, and the reproduction steps. **Every figure traced to a committed raw file.** If the improvement is modest, say so and say why — FR-018 forbids reaching for a bigger dataset instead
+- [X] T022 [US2] Replace the four `TODO(measure)` placeholders in `README.md` with captured figures, and update the status banner. No placeholder may remain anywhere in the repository (FR-019)
+- [X] T023 [US2] Run `measure` a second time and confirm the logical read counts and result hashes are identical to the first run while the elapsed times differ. That contrast is the evidence for how the two kinds of figure are weighted, and SC-004 is the assertion (FR-016)
 
 **Checkpoint**: the numbers exist, are published, and reproduce.
 
@@ -111,9 +111,9 @@ obtained against the published ones.
 **Independent Test**: measure the single-client request in both index states and compare its
 change against the full-range request's.
 
-- [ ] T024 [US3] Add the single-client request shape to the `measure` verb — the same full range filtered to the busiest client — and implement `--skip-single-client` as the escape hatch the plan's cut order names. The busiest client rather than an arbitrary one, so the shape is reproducible and its row count is not near zero (R9)
-- [ ] T025 [US3] Re-run the measurement so all four combinations are captured, and commit the two additional plans and statistics files
-- [ ] T026 [US3] Extend `docs/performance.md` to four rows and add the comparison: does the index help this path more, less, or the same as the unfiltered one, and what in the plans accounts for the difference. This is the question feature 003 flagged when it put ranking before filtering
+- [X] T024 [US3] Add the single-client request shape to the `measure` verb — the same full range filtered to the busiest client — and implement `--skip-single-client` as the escape hatch the plan's cut order names. The busiest client rather than an arbitrary one, so the shape is reproducible and its row count is not near zero (R9)
+- [X] T025 [US3] Re-run the measurement so all four combinations are captured, and commit the two additional plans and statistics files
+- [X] T026 [US3] Extend `docs/performance.md` to four rows and add the comparison: does the index help this path more, less, or the same as the unfiltered one, and what in the plans accounts for the difference. This is the question feature 003 flagged when it put ranking before filtering
 
 **Checkpoint**: all three stories independently functional.
 
@@ -121,13 +121,13 @@ change against the full-range request's.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T027 Read the index DDL and every statement in `Measurement/` line by line (P15). The DDL, the `sys.indexes` probe, the `DBCC` and the procedure invocation are all SQL this feature generated, and a green measurement run does not discharge the review
-- [ ] T028 Security review recorded in `docs/agent-log.md` (P24): confirm the index statements and the presence check are constants with nothing concatenated, that the procedure is still invoked with typed parameters, and that the `measure` verb takes no input that reaches SQL. **A new `CA2100` suppression is a design error here, not a finding to justify**
-- [ ] T029 [P] Add feature 004 entries to `docs/agent-log.md` for whatever went wrong, with symptom and how it was caught (P16). If nothing did, say so rather than inventing friction
-- [ ] T030 Walk `quickstart.md` end to end: `state` reports the index, the equivalence test passes, `measure` reproduces, and every figure in the summary table is findable in the raw statistics files. Validation 4 is the one that matters — it is the check a reviewer will actually perform
-- [ ] T031 Run `dotnet build --warnaserror --no-incremental` and confirm `0 Warning(s), 0 Error(s)`. `--no-incremental` because an incremental build has previously reported a clean gate that a full build did not
-- [ ] T032 Run `dotnet test` and confirm green, with feature 003's tests passing unchanged
-- [ ] T033 [P] Add a closing hint for `measure` to `scripts/Initialize-LocalDb.ps1`, so a developer who has just seeded the database learns the verb exists without reading the specs
+- [X] T027 Read the index DDL and every statement in `Measurement/` line by line (P15). The DDL, the `sys.indexes` probe, the `DBCC` and the procedure invocation are all SQL this feature generated, and a green measurement run does not discharge the review
+- [X] T028 Security review recorded in `docs/agent-log.md` (P24): confirm the index statements and the presence check are constants with nothing concatenated, that the procedure is still invoked with typed parameters, and that the `measure` verb takes no input that reaches SQL. **A new `CA2100` suppression is a design error here, not a finding to justify**
+- [X] T029 [P] Add feature 004 entries to `docs/agent-log.md` for whatever went wrong, with symptom and how it was caught (P16). If nothing did, say so rather than inventing friction
+- [X] T030 Walk `quickstart.md` end to end: `state` reports the index, the equivalence test passes, `measure` reproduces, and every figure in the summary table is findable in the raw statistics files. Validation 4 is the one that matters — it is the check a reviewer will actually perform
+- [X] T031 Run `dotnet build --warnaserror --no-incremental` and confirm `0 Warning(s), 0 Error(s)`. `--no-incremental` because an incremental build has previously reported a clean gate that a full build did not
+- [X] T032 Run `dotnet test` and confirm green, with feature 003's tests passing unchanged
+- [X] T033 [P] Add a closing hint for `measure` to `scripts/Initialize-LocalDb.ps1`, so a developer who has just seeded the database learns the verb exists without reading the specs
 
 ---
 

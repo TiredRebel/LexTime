@@ -144,7 +144,13 @@ public static class MaintenanceCommands
         CancellationToken cancellationToken)
     {
         var readings = ResolveInt(args, "--readings", 5);
-        var output = ResolveValue(args, "--output") ?? Path.Combine("docs", "performance");
+
+        // Resolved against the repository root, not the working directory. `dotnet run` sets
+        // the working directory to the project folder, so a relative default would write the
+        // committed evidence into src/LexTime.Api/docs — which is both wrong and easy not to
+        // notice, because the run reports success either way.
+        var output = ResolveValue(args, "--output")
+            ?? Path.Combine(FindRepositoryRoot(), "docs", "performance");
         var includeSingleClient = !args.Contains("--skip-single-client", StringComparer.Ordinal);
 
         // Said before anything runs, not in a footnote afterwards.

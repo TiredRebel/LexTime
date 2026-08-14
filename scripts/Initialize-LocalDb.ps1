@@ -362,5 +362,6 @@ Write-Host ''
 Write-Host $token.Output
 Write-Host ''
 Write-Host 'Next: dotnet run --project src/LexTime.Api'
+Write-Host '      dotnet run --project src/LexTime.Api measure    # regenerate docs/performance.md'
 
 exit 0
