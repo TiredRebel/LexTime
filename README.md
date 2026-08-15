@@ -3,12 +3,13 @@
 A minimal timekeeping API for legal billing — .NET 9, SQL Server 2022, and one
 stored procedure that does the interesting work.
 
-> **Status: features 001–004 complete — solution, schema, seeded data, health,
-> access boundary, the weekly billable rollup, and its measured index.** The four
-> projects build clean under `--warnaserror`, the two-command quickstart works from
-> cold, 400,000 deterministic time entries load in under a minute, and 61 integration
-> tests run against a real SQL Server container. The performance figures below are
-> captured from a run you can repeat with one command. The CRUD surface is next.
+> **Status: features 001–005 complete — solution, schema, seeded data, health,
+> access boundary, the weekly billable rollup, its measured index, and the time-entry
+> write path with all six domain rules.** The four projects build clean under
+> `--warnaserror`, the two-command quickstart works from cold, 400,000 deterministic
+> time entries load in under a minute, and 110 tests run against a real SQL Server
+> container. The performance figures below are captured from a run you can repeat with
+> one command. CRUD for clients and matters, then the pipeline, are next.
 
 ---
 
@@ -115,6 +116,39 @@ Enforced in C# with clear error messages, and — where expressible — again as
 5. Entries require an active matter belonging to an active client.
 6. The hourly rate is snapshotted onto the entry at creation. Rate changes do
    not rewrite history.
+
+All six live in one place — `LexTime.Domain/Rules/TimeEntryRuleSet.cs` — as a pure
+function of a facts record. Four of them need data the domain cannot fetch for
+itself (the day's other minutes, today's date, three active flags), so the
+domain states what it needs and is told. **No handler and no endpoint restates a
+limit**: a rule in two places is a rule that will eventually disagree with
+itself and say nothing about it.
+
+That purity is what makes the rule tests exhaustive and fast — every rule
+refusing, every rule accepting, every boundary, in 30ms with no database.
+
+Three details worth knowing:
+
+- **Rules 1 and 2 are also `CHECK` constraints, still.** A test writes a
+  violating row *outside* the application and asserts the database refuses it —
+  so deleting the constraint because "the application checks it now" fails a
+  test rather than passing review.
+- **Rule 3 is a read-then-write**, and would otherwise be defeatable by timing:
+  two requests both read a total of 1,400, both add 40, both pass, the day ends
+  at 1,480. The read and the write share a serialisable transaction, and a test
+  fires two concurrent submissions to prove exactly one survives.
+- **Rule 6 has no refusing test**, because no submission can violate it. It is
+  enforced by the update command having no rate field at all. Its accepting test
+  — record, change the timekeeper's rate, revise the entry, assert the captured
+  rate is untouched — is the one that catches a handler which rebuilt the entity
+  and re-read the current rate, rewriting history on every edit.
+
+**On update, the rules are field-scoped.** Rules 1, 2, 3 and 6 always re-apply;
+the backdating window and the active-matter check apply only to fields actually
+being changed. An entry recorded 200 days ago can still have its narrative
+corrected and still cannot have its date moved. Validating the whole entry as if
+newly recorded would freeze every old entry including its typos; skipping both
+would let rule 5 be defeated by editing rather than creating.
 
 ## The rollup
 

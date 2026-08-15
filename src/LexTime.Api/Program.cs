@@ -43,6 +43,11 @@ catch (InvalidOperationException ex) when (MaintenanceCommands.IsMaintenanceInvo
     return;
 }
 
+// The clock the domain rules measure against. Rule 4 forbids a work date in the future or more
+// than 90 days past, which is a statement about *today* — so today is injected rather than read,
+// and a test can state what day it is instead of waiting for one.
+builder.Services.AddSingleton(TimeProvider.System);
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -98,6 +103,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 // access boundary could be shown to accept as well as reject. The boundary tests now aim at
 // this route instead, which makes them stronger: they guard something that returns data.
 app.MapReportEndpoints();
+app.MapTimeEntryEndpoints();
 
 await app.RunAsync().ConfigureAwait(false);
 

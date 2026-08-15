@@ -258,6 +258,70 @@ destroyed the property the index before/after measurement depends on.
 
 ---
 
+## Feature 005 — time entries and the domain rules
+
+### 22. A boundary value that tested the wrong rule
+
+**Generated**: a rule-3 test asserting that 1,400 minutes already recorded plus a 40-minute
+submission is accepted — 1,440 exactly, the daily maximum, so it should pass.
+
+**Symptom**: it failed. The submission was refused.
+
+**Cause**: **40 is not a multiple of six.** Rule 1 refused the entry before rule 3 was ever
+consulted, so the test proved nothing about the daily maximum and its expected outcome was
+simply wrong. 1,400 is not a legal total either, since it cannot be the sum of six-minute
+increments.
+
+**Caught by**: the accepting half of the pair. The refusing case passed throughout — rule 3 does
+refuse 1,400 + 60 — so a suite testing only refusals would have been green and meaningless.
+`docs/prd.md` §6.4 requires both halves for exactly this reason, and this is the first time in
+this repository that requirement has paid out rather than merely been satisfied.
+
+**Worth recording for where the error started.** This feature's own contract document specified
+those numbers, and the contract *also* warned, one rule earlier, that rule 2 must be tested with
+1446 rather than 1441 because 1441 trips rule 1 first. The same trap was described and then
+walked into one row further down the same table. Both the test and the contract are now fixed,
+and the contract says why.
+
+### 23. A restored file that the build refused to notice
+
+**Symptom**: after deliberately mutating `TimeEntryRuleSet` to return no violations and
+confirming 14 of 29 tests failed, restoring the original file left the suite **still failing 14**
+— with the mutation demonstrably gone from the source.
+
+**Cause**: the restore was `Copy-Item` from a backup, which carries the backup's original
+timestamp. That timestamp was older than the compiled assembly, so MSBuild judged the source
+unchanged and skipped the rebuild. The tests ran against the mutated binary.
+
+**Caught by**: not believing the result. The source said one thing and the test said another, and
+only one of them can be right about what was compiled.
+
+**Resolution**: `dotnet build --no-incremental`, after which the suite was immediately green.
+
+**This is the third instance of this class in this repository** — the `--warnaserror` false pass
+in feature 001, the stale `dotnet ef` script in feature 002, and now this. The pattern is always
+the same: a build that reports success without having rebuilt, and a conclusion drawn from an
+artefact older than the change. `--no-incremental` is in the task lists for this reason, and it
+earned its place again.
+
+### 24. The mutation check that replaced an ordering I skipped
+
+The task list said to ship the rule set as a stub, write the tests against it, and implement
+afterwards — so that the tests would fail by *accepting* everything, proving each one exercises a
+rule rather than a missing type. **I wrote the rule set first and skipped that.**
+
+Rather than claim the ordering was followed, the guarantee was recovered directly: with all 29
+rule tests green, `Evaluate` was mutated to return no violations, and the suite re-run. **Fourteen
+failed and fifteen passed — and the fifteen that passed were exactly the accepting cases**, which
+should still pass when everything is accepted. Every refusing test therefore depends on the rule
+it names.
+
+That is a stronger check than the stub-first order would have produced, because it tests the
+finished rules rather than an empty shell. It is recorded here because the ordering in the task
+list was a real instruction and it was not followed; the outcome was recovered, not the process.
+
+---
+
 ## Feature 004 — index and measured performance
 
 ### 19. A measurement that confidently reported zero
@@ -436,6 +500,78 @@ the patched version itself, so it does not calcify into a mystery.
 make the message disappear. That would have silenced every future transitive finding as
 well, including ones that matter, and it would have done so in a way no reviewer could see.
 P24 exists to make that trade explicit rather than convenient.
+
+### 25. The seed does not satisfy a rule this feature added — found by the rule refusing it
+
+**Symptom**: a quickstart check submitted an entry dated 200 days ago, expecting one violation —
+the backdating window. It came back with **two**:
+
+> This would bring the timekeeper's total for 2026-01-27 to 2040 minutes, above the
+> 1440-minute daily maximum. 1980 minutes are already recorded.
+
+**Cause**: the seeded dataset routinely exceeds rule 3. **8,727 seeded user-days hold more than
+1,440 minutes**, the worst of them 3,834 — a timekeeper billing sixty-four hours in one day. The
+arithmetic makes it inevitable: 400,000 entries across 25 timekeepers and roughly 730 days is
+about 22 entries per person per day, and at a realistic length that is well past a day.
+
+**Is this a defect in feature 005?** No, and the distinction matters. The rules bind at recording
+and at correction, not retroactively — this feature's Assumptions say so, and feature 002 settled
+the same question for the backdating window. The API correctly refuses to *add* to an
+already-overfull day while leaving the recorded history alone. Every rule behaved exactly as
+specified.
+
+**It is a realism defect in the seed, which this feature made visible.** Constitution P9 asks for
+data that is realistic in shape, and sixty-four-hour days are not. Nobody would have noticed
+before now, because nothing previously asked the question — the rollup aggregates by client and
+week, where the anomaly disappears into a total.
+
+**Deliberately not fixed here.** Changing the seed's shape is out of this feature's scope, and it
+would invalidate feature 004's committed performance evidence: those figures were measured
+against this dataset, and the whole argument for them is that a reviewer can regenerate the same
+numbers from the same committed constants. Fixing the seed means re-taking that measurement, and
+that belongs in a feature that says so. **Recorded here as a known inconsistency with an owner
+rather than left for a reviewer to find.**
+
+---
+
+## Security review — feature 005 (constitution P24)
+
+This feature adds the API's first write path and five new routes, so P24 applies twice over.
+Reviewed before commit.
+
+**Zero new analyzer suppressions**, and none needed. Every query on this path is EF Core LINQ
+with parameters the provider supplies; the only hand-written SQL in the feature is in the tests.
+The repository's existing suppressions are unchanged.
+
+**What a caller cannot set.** Three fields are absent from the commands by design, and their
+absence is the enforcement rather than a check:
+
+- **The rate.** `RecordTimeEntryCommand` has no rate field. A caller able to state it could bill
+  at any figure they chose, and rule 6 would be decoration. It is read from the timekeeper.
+- **The rate again, on update.** `ReviseTimeEntryCommand` has no rate field either, so the API
+  offers no way to rewrite history even accidentally.
+- **The timekeeper, on update.** Moving an entry between people would change whose daily total it
+  counts against and whose rate it should have captured. Neither has a defined answer, so the
+  field does not exist.
+
+**Identifiers come from the route, never the body.** `PUT` and `DELETE` take the entry's
+identifier from the path; the body cannot name a different one. A body-supplied identifier is the
+classic way an update becomes an update of something else.
+
+**The access boundary.** All five routes are registered in one group with no `AllowAnonymous`, so
+they inherit feature 001's fallback-closed policy. `/health` and `/swagger` remain the only open
+routes.
+
+**Two things accepted rather than fixed**, both recorded so they read as decisions:
+
+- **No ownership model.** Any authenticated caller may record time for any timekeeper, including
+  one who is not them. `docs/prd.md` §2.2 rules out RBAC and a real identity provider: the token
+  proves the caller is trusted, not who they are. In a real system this would be a finding; here
+  it is a stated boundary, and the endpoints do not pretend otherwise.
+- **Serialisable isolation is a denial-of-service surface.** A caller can hold range locks on a
+  timekeeper's date by submitting concurrently. There is no load and no untrusted caller, the
+  transaction is short, and the alternative — dropping the isolation level — reintroduces the
+  race rule 3 exists to close. Named rather than mitigated.
 
 ---
 

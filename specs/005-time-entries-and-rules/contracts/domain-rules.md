@@ -38,9 +38,15 @@ rule 1 rejects it for a different reason. The first value that isolates rule 2 i
 
 | | |
 | --- | --- |
-| **Refuses** | 1,400 already recorded plus a 60-minute submission |
-| **Accepts** | 1,400 already recorded plus a 40-minute submission |
+| **Refuses** | 1,398 already recorded plus a 60-minute submission |
+| **Accepts** | 1,398 already recorded plus a 42-minute submission |
 | **Boundary** | a total of exactly `1440` is accepted; `1446` is refused |
+
+**Every figure in a rule-3 case must itself be a legal duration.** An earlier draft of this
+contract used 1,400 and 40, which look reasonable and prove nothing: neither is a multiple of six,
+so rule 1 refuses the submission before rule 3 is reached. This is the same trap as testing rule 2
+with 1441, one rule further along — and it was caught by the accepting test failing, which is
+precisely what the accepting half of each pair is for.
 | **On update** | Always, **excluding the entry being revised from the total** |
 | **Message must name** | the minutes already recorded for that date and the maximum |
 

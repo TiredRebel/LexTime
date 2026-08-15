@@ -1,4 +1,5 @@
 using LexTime.Application.Reporting;
+using LexTime.Application.TimeEntries;
 using LexTime.Infrastructure.Maintenance;
 using LexTime.Infrastructure.Measurement;
 using LexTime.Infrastructure.Persistence;
@@ -67,6 +68,11 @@ public static class DependencyInjection
         // through an endpoint: it clears the server's buffer pool and drops an index, which is
         // a developer operation and not something an HTTP request may ask for.
         services.AddScoped(_ => new RollupMeasurer(connectionString));
+
+        // The write path. EF Core owns it, which is what P5 assigns EF Core; the raw ADO.NET
+        // above belongs only to reporting. Scoped, because it shares the request's DbContext and
+        // therefore its unit of work.
+        services.AddScoped<ITimeEntryStore, TimeEntries.EfTimeEntryStore>();
 
         return services;
     }
