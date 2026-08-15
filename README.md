@@ -3,13 +3,13 @@
 A minimal timekeeping API for legal billing — .NET 9, SQL Server 2022, and one
 stored procedure that does the interesting work.
 
-> **Status: features 001–005 complete — solution, schema, seeded data, health,
-> access boundary, the weekly billable rollup, its measured index, and the time-entry
-> write path with all six domain rules.** The four projects build clean under
-> `--warnaserror`, the two-command quickstart works from cold, 400,000 deterministic
-> time entries load in under a minute, and 110 tests run against a real SQL Server
-> container. The performance figures below are captured from a run you can repeat with
-> one command. CRUD for clients and matters, then the pipeline, are next.
+> **Status: features 001–006 complete — solution, schema, seeded data, health,
+> access boundary, the weekly billable rollup, its measured index, the time-entry
+> write path, and the client, matter and timekeeper API surface.** The four projects
+> build clean under `--warnaserror`, the two-command quickstart works from cold,
+> 400,000 deterministic time entries load in under a minute, and 126 tests run against
+> a real SQL Server container. The performance figures below are captured from a run
+> you can repeat with one command.
 
 ---
 
@@ -76,10 +76,8 @@ LexTime.Api  →  LexTime.Application  →  LexTime.Domain
 
 - **`LexTime.Domain`** — entities and the six domain rules. References nothing.
 - **`LexTime.Application`** — one handler class per use case, DTOs with their
-  `ToDto()` extensions, and the interfaces `Infrastructure` implements. Today it
-  holds only its DI registration method: feature 001 has no use cases, and the
-  reporting interface arrives with feature 003. The project exists now because
-  the layering is a constitutional requirement, not because it earns its keep yet.
+  `ToDto()` extensions, and the interfaces `Infrastructure` implements. It owns
+  the client, matter, timekeeper and time-entry use cases plus the reporting ports.
 - **`LexTime.Infrastructure`** — EF Core `DbContext`, migrations, and the
   stored-procedure client.
 - **`LexTime.Api`** — endpoints, validation, JWT, DI composition. An endpoint
@@ -267,7 +265,7 @@ xUnit against real SQL Server 2022 via Testcontainers. No in-memory provider,
 no SQLite, no mocked `DbContext` — a test that cannot run against the real
 engine is not testing what this repository claims to be good at.
 
-Coverage is deliberate rather than uniform. Today, 40 tests cover the storage
+Coverage is deliberate rather than uniform. Today, 126 tests cover the storage
 constraints, the health contract, the access boundary, the maintenance verbs and
 the seed generator — asserted against the database directly, so that
 application-layer validation cannot mask a missing constraint. Two of them assert
@@ -281,8 +279,8 @@ regression would actually be introduced, and it is what makes asserting
 determinism — two runs producing identical rows — cheap enough to do on every
 build rather than never.
 
-As later features land: every domain rule gets a rejecting and an accepting
-case, and the rollup is asserted against a **hand-computed fixture** — expected
+Every domain rule gets a rejecting and an accepting case, and the rollup is asserted
+against a **hand-computed fixture** — expected
 cumulative totals, `LAG` deltas and ranks worked out by a human, not by running
 the procedure and recording its output. Trivial CRUD gets one happy path and one
 404. No coverage percentage is targeted or reported.
@@ -330,7 +328,7 @@ judgement.
 | Pipeline stops at publish | A live Azure environment costs money and a weekend |
 | One report, not several | The pattern is proven once; repeating it is padding |
 | No secret management beyond `appsettings.Development.json` | Demo scope, said out loud rather than hidden |
-| Clean-architecture layering at this size | Seventeen endpoints, four with real logic, do not need a handler class each. The layering is here because it is worth showing done properly — a presentation decision, not one the problem forced |
+| Clean-architecture layering at this size | Seventeen endpoints, including ten party routes, do not need a handler class each. The layering is here because it is worth showing done properly — a presentation decision, not one the problem forced |
 
 ## Built with Claude Code
 
@@ -392,7 +390,13 @@ was meant to exercise. Worth recording because a red test is not automatically
 evidence about the thing under test — had the assertion been on the exception
 type, it would have "passed" for entirely the wrong reason.
 
-Ten entries in total, including the misleading build error where a `--` inside
+**7. A persisted timestamp was returned before database precision had been applied.**
+The first client endpoint test compared the creation response with a subsequent read and
+found equal-looking timestamps that differed below `datetime2(3)` precision. The stores now
+reload newly inserted clients and matters before projecting them, and the test catches a
+future regression instead of accepting a response that does not equal stored state.
+
+The full log also records the misleading build error where a `--` inside
 an XML comment broke `Directory.Build.props` and surfaced as
 `NuGet.targets: Invalid framework identifier ''`. See `docs/agent-log.md`.
 

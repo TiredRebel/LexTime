@@ -735,3 +735,29 @@ commit, which is what P15 actually asks for.
 Notably, **CS1591 did not need suppressing**: EF writes an `auto-generated` header the
 compiler already honours. The documentation gate reaches every line of hand-written code in
 the repository, including every test method.
+
+---
+
+## Security review — feature 006 (constitution P24)
+
+Reviewed before implementation completion:
+
+- All ten new routes inherit the existing fallback authentication policy; none uses
+  `AllowAnonymous`.
+- Client, matter and timekeeper reads and writes use EF Core expression trees and typed
+  values. No feature-006 SQL was assembled from request data, and no CA2100 suppression was
+  added.
+- Client and matter identifiers come from route parameters. The revise commands deliberately
+  carry no client code, matter number, client identifier or timekeeper fields, so immutable
+  references cannot be smuggled through a body.
+- No POST or PUT route exists for timekeepers. The integration test asserts the absent surface
+  returns 405 rather than relying on a handler-side refusal.
+- Uniqueness translation matches only SQL Server errors 2601/2627 and the two known index
+  names. Unmatched database failures are rethrown; matching by localized message text was
+  avoided.
+
+**One implementation defect caught.** The first create path projected the in-memory timestamp
+before SQL Server applied the configured `datetime2(3)` precision. The create/read equality test
+caught the mismatch; stores now reload the inserted entity before returning it. A test assertion
+also initially used the wrong casing for an existing domain message and was corrected after
+reading the actual rule contract.

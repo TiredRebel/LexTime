@@ -1,4 +1,5 @@
 using LexTime.Application.Reporting;
+using LexTime.Application.Parties;
 using LexTime.Application.TimeEntries;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -38,6 +39,17 @@ public static class DependencyInjection
         services.AddScoped<DeleteTimeEntryHandler>();
         services.AddScoped<GetTimeEntryHandler>();
         services.AddScoped<ListTimeEntriesHandler>();
+
+        services.AddScoped<RegisterClientHandler>();
+        services.AddScoped<GetClientHandler>();
+        services.AddScoped<ReviseClientHandler>();
+        services.AddScoped<ListClientsHandler>();
+        services.AddScoped<OpenMatterHandler>();
+        services.AddScoped<GetMatterHandler>();
+        services.AddScoped<ReviseMatterHandler>();
+        services.AddScoped<ListMattersHandler>();
+        services.AddScoped<GetTimekeeperHandler>();
+        services.AddScoped<ListTimekeepersHandler>();
 
         return services;
     }
