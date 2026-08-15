@@ -104,6 +104,9 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 // this route instead, which makes them stronger: they guard something that returns data.
 app.MapReportEndpoints();
 app.MapTimeEntryEndpoints();
+app.MapClientEndpoints();
+app.MapMatterEndpoints();
+app.MapTimekeeperEndpoints();
 
 await app.RunAsync().ConfigureAwait(false);
 

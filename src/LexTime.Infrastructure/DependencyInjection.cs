@@ -1,4 +1,5 @@
 using LexTime.Application.Reporting;
+using LexTime.Application.Parties;
 using LexTime.Application.TimeEntries;
 using LexTime.Infrastructure.Maintenance;
 using LexTime.Infrastructure.Measurement;
@@ -73,6 +74,9 @@ public static class DependencyInjection
         // above belongs only to reporting. Scoped, because it shares the request's DbContext and
         // therefore its unit of work.
         services.AddScoped<ITimeEntryStore, TimeEntries.EfTimeEntryStore>();
+        services.AddScoped<IClientStore, Parties.EfClientStore>();
+        services.AddScoped<IMatterStore, Parties.EfMatterStore>();
+        services.AddScoped<ITimekeeperStore, Parties.EfTimekeeperStore>();
 
         return services;
     }
