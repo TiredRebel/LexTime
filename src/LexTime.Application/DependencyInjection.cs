@@ -1,4 +1,5 @@
 using LexTime.Application.Reporting;
+using LexTime.Application.TimeEntries;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LexTime.Application;
@@ -29,6 +30,14 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddScoped<GetWeeklyBillableRollupHandler>();
+
+        // The time-entry use cases. Five endpoints, five handlers — P4 makes that one-to-one
+        // rather than a service class with five methods, so a reader can find a use case by name.
+        services.AddScoped<RecordTimeEntryHandler>();
+        services.AddScoped<ReviseTimeEntryHandler>();
+        services.AddScoped<DeleteTimeEntryHandler>();
+        services.AddScoped<GetTimeEntryHandler>();
+        services.AddScoped<ListTimeEntriesHandler>();
 
         return services;
     }
