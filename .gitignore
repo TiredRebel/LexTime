@@ -294,6 +294,7 @@ FakesAssemblies/
 node_modules/
 .next/
 web/out/
+*.tsbuildinfo
 .env.*
 !.env.example
 
