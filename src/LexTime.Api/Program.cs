@@ -1,4 +1,5 @@
 using LexTime.Api.Authentication;
+using LexTime.Api.Dashboard;
 using LexTime.Api.Endpoints;
 using LexTime.Api.HealthChecks;
 using LexTime.Api.Maintenance;
@@ -74,6 +75,11 @@ if (MaintenanceCommands.IsMaintenanceInvocation(args))
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+// The committed Next.js export is anonymous; only its calls into /api/v1 remain closed.
+// Keeping this before authorization preserves the existing fallback-closed API policy while
+// letting a reviewer reach the token prompt from the same `dotnet run` (constitution P18).
+app.MapDashboardFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -357,7 +357,7 @@ if ($token.ExitCode -ne 0) {
 Write-Step -Number 8 -Name 'Development token' -Result 'printed below'
 
 Write-Host ''
-Write-Host 'Development token (paste into the Swagger authorize box):'
+Write-Host 'Development token (paste into the dashboard token field or Swagger authorize box):'
 Write-Host ''
 Write-Host $token.Output
 Write-Host ''

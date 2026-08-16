@@ -761,3 +761,58 @@ before SQL Server applied the configured `datetime2(3)` precision. The create/re
 caught the mismatch; stores now reload the inserted entity before returning it. A test assertion
 also initially used the wrong casing for an existing domain message and was corrected after
 reading the actual rule contract.
+
+---
+
+## Feature 007 — the test command invented a switch
+
+**What the agent generated:** task T023 and the first dashboard-host test run used
+`dotnet test --no-incremental`, extrapolating the repository's required build switch onto the
+test command.
+
+**Symptom:** the test did not start. MSBuild exited with `MSB1001: Unknown switch` and showed
+`--no-incremental` as the offending argument.
+
+**How it was caught:** by executing the test task before implementation, rather than treating
+the generated command as plausible documentation. The gate is now a fresh
+`dotnet build --warnaserror --no-incremental` followed by `dotnet test --no-build`; this earns
+the non-incremental build evidence and makes the tests consume exactly that assembly.
+
+---
+
+## Security review — feature 007 (constitution P24)
+
+Reviewed the browser token path, anonymous static hosting and the auth-adjacent setup-script
+wording before implementation completion:
+
+- The pasted development token is held under one `sessionStorage` key, sent only in the
+  `Authorization` header of a same-origin request, never added to a URL, and removed on 401.
+  There is no refresh logic, identity endpoint, email/password flow or signing key in the UI.
+- `MapDashboardFiles()` serves only the committed export before authorization. The existing
+  fallback policy still closes `/api/v1/*`, and `DashboardHostTests` proves `/` returns 200
+  while the rollup returns 401 without a token.
+- Searches of both `web/` and the generated `wwwroot/` found no JWT value, signing key or
+  literal bearer credential. The JWT-shaped text in the input is only a placeholder.
+- React renders report strings as text and the dashboard has no raw-HTML sink. The accepted
+  risk is the normal SPA one: same-origin script can read `sessionStorage`. That is bounded
+  here by the local reviewer scope and the absence of an identified injection path.
+- The `Initialize-LocalDb.ps1` change alters only the destination named beside the already
+  printed token; token creation and output are unchanged.
+
+No medium-or-higher finding required remediation.
+
+---
+
+## Feature 007 — validation friction
+
+Two validation details were caught by running the generated workflow rather than trusting it:
+
+- A fresh build initially failed with locked API assemblies because the browser-validation
+  host was still running. Stopping that host before the gate produced a clean
+  `--warnaserror --no-incremental` build and all 128 tests passed from those assemblies.
+- Automated browser review covered the anonymous token prompt, accessibility tree and
+  768-pixel no-overflow layout, but credential-entry safeguards correctly refused to paste a
+  bearer token. The authenticated row comparison, client-filter interaction and the remaining
+  keyboard walkthrough are therefore explicit human validation steps rather than claims made
+  from source inspection. API-side checks did confirm 495 seeded rows, an empty future range,
+  a null first-week delta, a later numeric delta, and the unchanged 401 boundary.

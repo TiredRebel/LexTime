@@ -3,11 +3,12 @@
 A minimal timekeeping API for legal billing — .NET 9, SQL Server 2022, and one
 stored procedure that does the interesting work.
 
-> **Status: features 001–006 complete — solution, schema, seeded data, health,
+> **Status: features 001–007 complete — solution, schema, seeded data, health,
 > access boundary, the weekly billable rollup, its measured index, the time-entry
-> write path, and the client, matter and timekeeper API surface.** The four projects
+> write path, the client, matter and timekeeper API surface, and a thin browser
+> dashboard over the existing rollup.** The four projects
 > build clean under `--warnaserror`, the two-command quickstart works from cold,
-> 400,000 deterministic time entries load in under a minute, and 126 tests run against
+> 400,000 deterministic time entries load in under a minute, and 128 tests run against
 > a real SQL Server container. The performance figures below are captured from a run
 > you can repeat with one command.
 
@@ -41,9 +42,10 @@ The first brings up SQL Server 2022, waits for it to accept queries, applies the
 schema and any stored procedures, seeds 400,000 deterministic time entries,
 verifies their distribution, and prints a development bearer token. It is
 idempotent — a second run reports what it skipped and changes nothing. The
-second command serves Swagger UI and a `/health` endpoint that reports each
-check by name; paste the printed token into the authorize box to call a
-protected route.
+second command serves the dashboard at `http://localhost:5202/`, Swagger UI at
+`http://localhost:5202/swagger`, and a `/health` endpoint that reports each
+check by name. Paste the printed token into the dashboard token field or the
+Swagger authorize box to call the protected rollup.
 
 To rebuild the data without restarting the container:
 
@@ -61,6 +63,20 @@ docker compose down -v
 the application itself rather than by the `dotnet-ef` global tool, specifically
 so that this list stays at Docker and the SDK. If a step exists but is not
 documented here, that is a defect.
+
+The dashboard is a thin, static Next.js consumer of the existing authenticated
+endpoint, not a second application or the repository's primary hiring signal.
+Node is not required for the quickstart. It is needed only when changing files
+under `web/` and regenerating the committed export:
+
+```powershell
+cd web
+npm ci
+npm run build
+```
+
+The build replaces `src/LexTime.Api/wwwroot/` deterministically; `dotnet build`
+does not invoke npm.
 
 ## Architecture
 
@@ -80,8 +96,9 @@ LexTime.Api  →  LexTime.Application  →  LexTime.Domain
   the client, matter, timekeeper and time-entry use cases plus the reporting ports.
 - **`LexTime.Infrastructure`** — EF Core `DbContext`, migrations, and the
   stored-procedure client.
-- **`LexTime.Api`** — endpoints, validation, JWT, DI composition. An endpoint
-  validates input, invokes a handler, and maps the result to a status code.
+- **`LexTime.Api`** — endpoints, validation, JWT, DI composition, and the
+  committed static dashboard export. An endpoint validates input, invokes a
+  handler, and maps the result to a status code.
 
 `Application` has **no third-party runtime dependencies**. No mediator library:
 each handler has exactly one caller, so there is nothing to mediate. No mapping
@@ -157,6 +174,10 @@ dense rank of clients within each week — via `SUM() OVER (PARTITION BY ...
 ORDER BY ...)`, `LAG()` and `DENSE_RANK()`.
 
 `GET /api/v1/reports/weekly-billable-rollup?from=&to=&clientId=`
+
+The browser dashboard pages the returned rows locally at 20, 50, or 100 per
+page. Page size and client filtering do not change the request, recompute
+standing, or alter the period totals.
 
 ```jsonc
 {
@@ -265,7 +286,7 @@ xUnit against real SQL Server 2022 via Testcontainers. No in-memory provider,
 no SQLite, no mocked `DbContext` — a test that cannot run against the real
 engine is not testing what this repository claims to be good at.
 
-Coverage is deliberate rather than uniform. Today, 126 tests cover the storage
+Coverage is deliberate rather than uniform. Today, 128 tests cover the storage
 constraints, the health contract, the access boundary, the maintenance verbs and
 the seed generator — asserted against the database directly, so that
 application-layer validation cannot mask a missing constraint. Two of them assert
@@ -329,6 +350,7 @@ judgement.
 | One report, not several | The pattern is proven once; repeating it is padding |
 | No secret management beyond `appsettings.Development.json` | Demo scope, said out loud rather than hidden |
 | Clean-architecture layering at this size | Seventeen endpoints, including ten party routes, do not need a handler class each. The layering is here because it is worth showing done properly — a presentation decision, not one the problem forced |
+| Static dashboard export committed under `wwwroot` | Keeps the reviewer quickstart at Docker plus .NET; UI contributors regenerate it explicitly with Node |
 
 ## Built with Claude Code
 
@@ -408,6 +430,7 @@ an XML comment broke `Directory.Build.props` and surfaced as
 ├─ scripts/                Initialize-LocalDb.ps1
 ├─ src/                    Api, Application, Domain, Infrastructure
 ├─ tests/                  LexTime.IntegrationTests
+├─ web/                    Next.js source; build syncs its export into Api/wwwroot
 └─ .specify/               constitution, specs, plans, tasks
 ```
 

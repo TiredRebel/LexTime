@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <Description>HTTP surface. Endpoints, validation, token validation, health checks and dependency-injection composition. Holds no business logic and touches no DbContext directly (constitution P4).</Description>
+    <Description>HTTP surface. Endpoints, validation, token validation, health checks, the committed dashboard export and dependency-injection composition. Holds no business logic and touches no DbContext directly (constitution P4).</Description>
   </PropertyGroup>
 
   <ItemGroup>
