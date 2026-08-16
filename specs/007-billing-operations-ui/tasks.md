@@ -60,7 +60,7 @@
 - [x] T009 [P] [US1] Implement the mockup-aligned rollup table in `web/app/rollup-table.tsx` with client, ISO week, billable hours, non-billable hours, amount, cumulative hours, delta, and rank columns; preserve numeric zero and the service-provided rank
 - [x] T010 [US1] Implement the token-paste landing, authenticated same-origin fetch, period labelling, client-only display filtering, and optional service-derived summary cards in `web/app/page.tsx`; do not send `clientId`, recompute rank, add charts/export, or expose time-entry and party actions
 - [x] T011 [US1] Build `web/`, sync the export into `src/LexTime.Api/wwwroot/`, and make `DashboardHostTests` pass while confirming `/swagger`, `/health`, and existing API routes retain their prior behavior
-- [ ] T012 [US1] Run Validation 1 and Validation 3 from `specs/007-billing-operations-ui/quickstart.md` against seeded SQL Server, compare at least one displayed row with the authenticated JSON response, and record any discrepancy and its fix in `docs/agent-log.md`
+- [x] T012 [US1] Run Validation 1 and Validation 3 from `specs/007-billing-operations-ui/quickstart.md` against seeded SQL Server, compare at least one displayed row with the authenticated JSON response, and record any discrepancy and its fix in `docs/agent-log.md`
 
 **Checkpoint**: User Story 1 is independently usable as the dashboard MVP. Stop here if the one-evening cap is reached.
 
@@ -79,7 +79,7 @@
 - [x] T015 [US2] Integrate the exhaustive states into `web/app/page.tsx`: block incomplete/inverted ranges before fetch, clear stale rows when a new request starts, preserve controls across recoverable failures, clear the token on 401, and expose a safe retry without internal problem details
 - [x] T016 [US2] Update `web/app/rollup-table.tsx` so existing zero values remain numeric, `hoursDeltaVsPriorWeek: null` renders explicit no-comparison text rather than `0`, and a client-filter miss renders empty success rather than 404/failure
 - [x] T017 [US2] Complete keyboard, focus, non-color cues, desktop/tablet layout, and no-primary-horizontal-scroll styling in `web/app/globals.css` against `mockups/01-sign-in.png` and `mockups/03-weekly-billable-rollup.png`
-- [ ] T018 [US2] Rebuild and sync `web/` into `src/LexTime.Api/wwwroot/`, then run Validation 2 and Validation 4 from `specs/007-billing-operations-ui/quickstart.md` and record any discrepancy and its fix in `docs/agent-log.md`
+- [x] T018 [US2] Rebuild and sync `web/` into `src/LexTime.Api/wwwroot/`, then run Validation 2 and Validation 4 from `specs/007-billing-operations-ui/quickstart.md` and record any discrepancy and its fix in `docs/agent-log.md`
 
 **Checkpoint**: Both stories are independently verifiable, and all SC-002 state distinctions are visible.
 
@@ -94,7 +94,7 @@
 - [x] T021 Perform the P24 manual security review of browser token handling and the `scripts/Initialize-LocalDb.ps1` auth-adjacent change, verify no signing key/token enters committed `web/` or `src/LexTime.Api/wwwroot/`, and record the review and any accepted findings in `docs/agent-log.md`
 - [x] T022 Review `web/` against `specs/007-billing-operations-ui/mockups/README.md` and remove any chart, export control, email/password flow, settings, fabricated comparison KPI, or working 008/009 navigation that entered the implementation
 - [x] T023 Run `npm ci` and `npm run build` in `web/`, verify the committed `src/LexTime.Api/wwwroot/` exactly matches the fresh export, then run `dotnet build --warnaserror --no-incremental` followed by `dotnet test --no-build`
-- [ ] T024 Execute all five validations in `specs/007-billing-operations-ui/quickstart.md` from a cold two-command start, including keyboard-only and tablet-width checks, and document genuine implementation friction in `docs/agent-log.md` or explicitly record that none occurred
+- [x] T024 Execute all five validations in `specs/007-billing-operations-ui/quickstart.md` from a cold two-command start, including keyboard-only and tablet-width checks, and document genuine implementation friction in `docs/agent-log.md` or explicitly record that none occurred
 
 ---
 
