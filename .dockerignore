@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/node_modules/
+web/.next/
+web/out/
+.git/
+.gitignore
+.dockerignore
+*.log
+.env*
+coverage/
+TestResults/

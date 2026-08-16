@@ -1,0 +1,22 @@
+{
+  "name": "lextime-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static Next.js consumer of the LexTime weekly billable rollup.",
+  "scripts": {
+    "build": "next build && node scripts/sync-export.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "dependencies": {
+    "next": "^16.3.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "typescript": "^7.0.2"
+  }
+}
