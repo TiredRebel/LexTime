@@ -3,8 +3,9 @@
 **Status:** Draft v1.0
 **Owner:** Dmytro
 **Type:** Portfolio / interview demo repository — not a product
-**Budget:** 3–4 evenings (~16–20 focused hours) — raised from 2–3 when
-constitution v2.0.0 added the Application layer; see §7
+**Budget:** 3–4 evenings (~16–20 focused hours) for the API — raised from 2–3 when
+constitution v2.0.0 added the Application layer; see §7. A thin operations UI is
+additional evening-sized specs after §6, not part of those four evenings.
 
 ---
 
@@ -72,6 +73,18 @@ SQL Server, stored procedures, PowerShell and Azure DevOps.
   `SUM() OVER (PARTITION BY ... ORDER BY ...)`, `LAG()` and `DENSE_RANK()`.
 - Called directly via `SqlCommand`/`SqlDataReader`, not through EF Core.
 
+**Operations UI (thin, after the API is complete)**
+
+- A Next.js / React browser UI that consumes the existing authenticated
+  endpoints and makes the weekly rollup — and, in later specs, the rest of the
+  finished API — operable in a browser.
+- It adds no billing behaviour, no schema, no identity provider, and no
+  endpoint except whatever same-origin hosting needs so the two-command API
+  quickstart in §6 still works from Docker and the .NET 9 SDK alone.
+- Node / npm is not required to demonstrate the backend. Swagger remains the
+  API contract. The UI is the first thing cut if it starts looking like a
+  product rather than a way to read the rollup.
+
 **Infrastructure**
 
 - .NET SDK pinned to **9.0.317** via `global.json` with
@@ -110,7 +123,7 @@ Listed here so the reviewer sees the boundary was chosen, not missed.
 
 | Not building | Why |
 | --- | --- |
-| Any frontend / UI | The role is backend; a half-finished React app weakens the signal |
+| A product frontend, native mobile, or a second unfinished application | The original row was "Any frontend / UI" because a half-finished React app weakens a backend demo. That reason still holds. What §2.1 now permits is a thin, complete consumer of the finished API — not a design system, not offline, not RBAC screens, and not a UI that invents records or billing rules |
 | Multi-tenancy, firm-level isolation | Real product concern, doubles the data model and every query |
 | Invoicing, trust accounting, LEDES export | Real legal-billing domain, far past a demo |
 | Approval / submit / lock workflow | Adds state machine and 3× the endpoints for no new technical signal |
@@ -321,6 +334,11 @@ than left to be inferred from folder names, so a reviewer can verify the
 dependency direction by opening the `.csproj` files rather than by trusting the
 folder names. Constitution P4 is the binding statement of this rule.
 
+A `web/` directory — a Next.js consumer of the API, not a fifth layered project —
+is permitted by §2.1. It is not present until an operations-UI spec lands it. It
+has no `ProjectReference` into `Infrastructure`. P4's four .NET projects and five
+references stay exhaustive.
+
 ---
 
 ## 6. Done criteria
@@ -335,6 +353,9 @@ reviewer who has only Docker and the .NET 9 SDK.
 2. `dotnet run --project src/LexTime.Api` serves Swagger UI and a green
    `/health`.
 3. `README.md` quickstart is exactly these two commands — no undocumented step.
+
+The operations UI, when present, is reached from that same `dotnet run` and does
+not add a third required command. Node is not required to satisfy this section.
 
 **Correct**
 
@@ -405,6 +426,10 @@ the rollup keeps its full attention (P10). After that the cut order is: LLM
 Wiki pages → Graphify → README polish. The performance section and the pipeline
 are not cuttable — they are the two things the job description asks for by
 name.
+
+The operations UI is additional evening-sized specs after the API in §6 is
+complete. It is not folded into evenings 1–4. Constitution P3 still caps each of
+those specs at one evening.
 
 ---
 
