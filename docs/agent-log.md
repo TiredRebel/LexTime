@@ -816,3 +816,44 @@ Two validation details were caught by running the generated workflow rather than
   keyboard walkthrough are therefore explicit human validation steps rather than claims made
   from source inspection. API-side checks did confirm 495 seeded rows, an empty future range,
   a null first-week delta, a later numeric delta, and the unchanged 401 boundary.
+
+---
+
+## Security review — feature 008 (constitution P24)
+
+`web/app/token-session.ts`, `src/LexTime.Api/Dashboard/DashboardFiles.cs`, JWT
+validation, connection strings, and SQL were not modified. Time entries reuses the
+007 paste-and-`sessionStorage` session and the existing five time-entry routes.
+
+A search of `web/` and the regenerated `src/LexTime.Api/wwwroot/` found no JWT
+value, signing key, or literal bearer credential. Writes send JSON bodies without
+a rate field and without `userId` on revise.
+
+No medium-or-higher finding required remediation; there was no new auth or SQL
+surface to accept.
+
+---
+
+## Feature 008 — implementation notes
+
+Caught during implementation rather than invented afterwards:
+
+- Recording "today" while the listing is open on the last seed week (2026-08-10
+  through 2026-08-13) would hide the new row. After a successful record the
+  listing range expands to include the saved work date so SC-002 can be shown
+  without a silent filter miss.
+- The Time entries host test is a pin, not a failing-first test: the collection
+  was already 401 without a token. It exists so serving HTML cannot quietly open
+  the seed.
+- `dotnet test --no-incremental` remains invalid (feature 007). The gate used
+  here was `dotnet build --warnaserror --no-incremental` then
+  `dotnet test --no-build` (129 tests).
+- Against the running host: unauthenticated `GET /` is 200 HTML;
+  `GET /api/v1/time-entries` is 401. The seed week
+  `2026-08-10`–`2026-08-13` lists `total=2933` with a 20-row page whose first
+  row is work date 2026-08-10, 12 minutes, captured rate 185. The empty future
+  window returns `total=0`. A 7-minute POST returns 400 with every
+  `violations[]` entry (duration increment plus, for matter 1, an inactive
+  client) rather than only the first. Authenticated browser walkthroughs still
+  need a human to paste the development token; the 007 credential-entry
+  safeguard applies here too.

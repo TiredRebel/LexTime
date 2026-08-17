@@ -7,8 +7,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace LexTime.IntegrationTests;
 
 /// <summary>
-/// Pins the host boundary introduced by the dashboard: its static shell is open while its
-/// source report remains protected.
+/// Pins the host boundary introduced by the dashboard: its static shell is open while the
+/// rollup and time-entry collection remain protected.
 /// </summary>
 /// <param name="fixture">Supplies the real SQL Server container used by the hosted API.</param>
 [Collection(DatabaseCollection.Name)]
@@ -44,6 +44,24 @@ public sealed class DashboardHostTests(SqlServerFixture fixture)
         using var client = this.CreateClient();
         var route = ReportEndpoints.WeeklyBillableRollupRoute
             + "?from=2026-06-18&to=2026-08-13";
+
+        using var response = await client.GetAsync(new Uri(route, UriKind.Relative))
+            .ConfigureAwait(true);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Serving the anonymous shell does not open the time-entry collection. The listing is
+    /// what the Time entries view fetches after a token is pasted; it must stay closed so a
+    /// missing session cannot read the seed.
+    /// </summary>
+    /// <returns>A task that completes when the authorization boundary has been asserted.</returns>
+    [Fact]
+    public async Task TimeEntriesRemainProtectedWithoutAToken()
+    {
+        using var client = this.CreateClient();
+        var route = TimeEntryEndpoints.BaseRoute + "?from=2026-08-10&to=2026-08-13";
 
         using var response = await client.GetAsync(new Uri(route, UriKind.Relative))
             .ConfigureAwait(true);

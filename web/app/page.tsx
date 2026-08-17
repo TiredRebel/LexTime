@@ -22,6 +22,7 @@ import {
   DevelopmentTokenPrompt,
   ReportStatus,
 } from "./dashboard-status";
+import { TimeEntriesView } from "./time-entries-view";
 import {
   clearDevelopmentToken,
   readDevelopmentToken,
@@ -30,6 +31,12 @@ import {
 
 const initialFrom = "2026-06-18";
 const initialTo = "2026-08-13";
+
+type ShellDestination = "reports" | "time-entries";
+
+function destinationFromHash(): ShellDestination {
+  return window.location.hash === "#time-entries" ? "time-entries" : "reports";
+}
 
 export default function DashboardPage(): React.JSX.Element {
   const [from, setFrom] = useState(initialFrom);
@@ -45,6 +52,7 @@ export default function DashboardPage(): React.JSX.Element {
   const [validationMessage, setValidationMessage] = useState<string | null>(
     null,
   );
+  const [destination, setDestination] = useState<ShellDestination>("reports");
 
   async function loadReport(
     activeToken: string,
@@ -100,6 +108,16 @@ export default function DashboardPage(): React.JSX.Element {
 
     setToken(storedToken);
     void loadReport(storedToken, initialFrom, initialTo);
+  }, []);
+
+  useEffect(() => {
+    function syncDestination(): void {
+      setDestination(destinationFromHash());
+    }
+
+    syncDestination();
+    window.addEventListener("hashchange", syncDestination);
+    return () => window.removeEventListener("hashchange", syncDestination);
   }, []);
 
   const response =
@@ -231,9 +249,27 @@ export default function DashboardPage(): React.JSX.Element {
         <div className="wordmark">LexTime</div>
         <nav aria-label="Primary" className="side-nav">
           <a
-            aria-current="page"
-            className="nav-item nav-item-current"
-            href="#main-content"
+            aria-current={destination === "time-entries" ? "page" : undefined}
+            className={
+              destination === "time-entries"
+                ? "nav-item nav-item-current"
+                : "nav-item"
+            }
+            href="#time-entries"
+          >
+            <span aria-hidden="true" className="nav-icon">
+              T
+            </span>
+            Time entries
+          </a>
+          <a
+            aria-current={destination === "reports" ? "page" : undefined}
+            className={
+              destination === "reports"
+                ? "nav-item nav-item-current"
+                : "nav-item"
+            }
+            href="#reports"
           >
             <span aria-hidden="true" className="nav-icon">
               R
@@ -242,9 +278,9 @@ export default function DashboardPage(): React.JSX.Element {
           </a>
         </nav>
         <div className="sidebar-note">
-          Dashboard slice 007
+          Thin consumer of the finished API.
           <br />
-          Existing rollup, no new billing logic.
+          No new billing rules.
           <br />
           <button className="secondary-button" onClick={signOut} type="button">
             Clear session
@@ -252,6 +288,17 @@ export default function DashboardPage(): React.JSX.Element {
         </div>
       </aside>
       <main className="main-content" id="main-content">
+        {destination === "time-entries" ? (
+          <TimeEntriesView
+            onUnauthorized={(message) => {
+              clearDevelopmentToken();
+              setToken(null);
+              setSessionMessage(message);
+            }}
+            token={token}
+          />
+        ) : (
+          <>
         <header className="report-header">
           <div>
             <p className="eyebrow">Reports / Weekly</p>
@@ -320,6 +367,8 @@ export default function DashboardPage(): React.JSX.Element {
               rows={pagedRows}
               totalRows={visibleRows.length}
             />
+          </>
+        )}
           </>
         )}
       </main>

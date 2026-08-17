@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  description: "Weekly billable rollup for the LexTime interview demo.",
-  title: "LexTime · Weekly billable rollup",
+  title: "LexTime",
+  description: "Time entries and weekly billable rollup for the LexTime interview demo.",
 };
 
 interface RootLayoutProps {
@@ -19,7 +19,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <a className="skip-link" href="#main-content">
-          Skip to report
+          Skip to content
         </a>
         {children}
       </body>
