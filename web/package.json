@@ -2,7 +2,7 @@
   "name": "lextime-dashboard",
   "version": "1.0.0",
   "private": true,
-  "description": "Static Next.js consumer of the LexTime weekly billable rollup and time-entry API.",
+  "description": "Static Next.js consumer of the LexTime weekly billable rollup, time-entry API, and party directories.",
   "scripts": {
     "build": "next build && node scripts/sync-export.mjs",
     "typecheck": "tsc --noEmit"

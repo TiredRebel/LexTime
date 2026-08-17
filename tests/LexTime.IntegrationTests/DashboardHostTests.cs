@@ -8,7 +8,7 @@ namespace LexTime.IntegrationTests;
 
 /// <summary>
 /// Pins the host boundary introduced by the dashboard: its static shell is open while the
-/// rollup and time-entry collection remain protected.
+/// rollup, time-entry collection, and party directories remain protected.
 /// </summary>
 /// <param name="fixture">Supplies the real SQL Server container used by the hosted API.</param>
 [Collection(DatabaseCollection.Name)]
@@ -65,6 +65,40 @@ public sealed class DashboardHostTests(SqlServerFixture fixture)
 
         using var response = await client.GetAsync(new Uri(route, UriKind.Relative))
             .ConfigureAwait(true);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Serving the anonymous shell does not open the client directory. The listing is
+    /// what the Clients view fetches after a token is pasted; it must stay closed so a
+    /// missing session cannot read the seed.
+    /// </summary>
+    /// <returns>A task that completes when the authorization boundary has been asserted.</returns>
+    [Fact]
+    public async Task ClientsRemainProtectedWithoutAToken()
+    {
+        using var client = this.CreateClient();
+
+        using var response = await client.GetAsync(
+            new Uri(ClientEndpoints.BaseRoute, UriKind.Relative)).ConfigureAwait(true);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Serving the anonymous shell does not open the timekeeper roster. The listing is
+    /// what the Timekeepers view fetches after a token is pasted; it must stay closed so a
+    /// missing session cannot read the seed.
+    /// </summary>
+    /// <returns>A task that completes when the authorization boundary has been asserted.</returns>
+    [Fact]
+    public async Task TimekeepersRemainProtectedWithoutAToken()
+    {
+        using var client = this.CreateClient();
+
+        using var response = await client.GetAsync(
+            new Uri(TimekeeperEndpoints.BaseRoute, UriKind.Relative)).ConfigureAwait(true);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
