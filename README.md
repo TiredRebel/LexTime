@@ -3,12 +3,12 @@
 A minimal timekeeping API for legal billing — .NET 9, SQL Server 2022, and one
 stored procedure that does the interesting work.
 
-> **Status: features 001–007 complete — solution, schema, seeded data, health,
+> **Status: features 001–008 complete — solution, schema, seeded data, health,
 > access boundary, the weekly billable rollup, its measured index, the time-entry
 > write path, the client, matter and timekeeper API surface, and a thin browser
-> dashboard over the existing rollup.** The four projects
+> consumer of the rollup and time entries.** The four projects
 > build clean under `--warnaserror`, the two-command quickstart works from cold,
-> 400,000 deterministic time entries load in under a minute, and 128 tests run against
+> 400,000 deterministic time entries load in under a minute, and 129 tests run against
 > a real SQL Server container. The performance figures below are captured from a run
 > you can repeat with one command.
 
@@ -45,7 +45,8 @@ idempotent — a second run reports what it skipped and changes nothing. The
 second command serves the dashboard at `http://localhost:5202/`, Swagger UI at
 `http://localhost:5202/swagger`, and a `/health` endpoint that reports each
 check by name. Paste the printed token into the dashboard token field or the
-Swagger authorize box to call the protected rollup.
+Swagger authorize box. Time entries is `#time-entries` in the same shell;
+Reports remains the weekly rollup.
 
 To rebuild the data without restarting the container:
 
@@ -65,7 +66,8 @@ so that this list stays at Docker and the SDK. If a step exists but is not
 documented here, that is a defect.
 
 The dashboard is a thin, static Next.js consumer of the existing authenticated
-endpoint, not a second application or the repository's primary hiring signal.
+endpoints — the weekly rollup and the time-entry listing/write path — not a
+second application or the repository's primary hiring signal.
 Node is not required for the quickstart. It is needed only when changing files
 under `web/` and regenerating the committed export:
 
@@ -177,7 +179,9 @@ ORDER BY ...)`, `LAG()` and `DENSE_RANK()`.
 
 The browser dashboard pages the returned rows locally at 20, 50, or 100 per
 page. Page size and client filtering do not change the request, recompute
-standing, or alter the period totals.
+standing, or alter the period totals. Time entries is a second view in the
+same shell: it pages `GET /api/v1/time-entries` with `skip`/`take` against the
+matching total and does not send `clientId`.
 
 ```jsonc
 {
@@ -286,7 +290,7 @@ xUnit against real SQL Server 2022 via Testcontainers. No in-memory provider,
 no SQLite, no mocked `DbContext` — a test that cannot run against the real
 engine is not testing what this repository claims to be good at.
 
-Coverage is deliberate rather than uniform. Today, 128 tests cover the storage
+Coverage is deliberate rather than uniform. Today, 129 tests cover the storage
 constraints, the health contract, the access boundary, the maintenance verbs and
 the seed generator — asserted against the database directly, so that
 application-layer validation cannot mask a missing constraint. Two of them assert
