@@ -23,6 +23,8 @@ import {
   ReportStatus,
 } from "./dashboard-status";
 import { TimeEntriesView } from "./time-entries-view";
+import { ClientsView } from "./clients-view";
+import { TimekeepersView } from "./timekeepers-view";
 import {
   clearDevelopmentToken,
   readDevelopmentToken,
@@ -32,10 +34,23 @@ import {
 const initialFrom = "2026-06-18";
 const initialTo = "2026-08-13";
 
-type ShellDestination = "reports" | "time-entries";
+type ShellDestination =
+  | "reports"
+  | "time-entries"
+  | "clients"
+  | "timekeepers";
 
 function destinationFromHash(): ShellDestination {
-  return window.location.hash === "#time-entries" ? "time-entries" : "reports";
+  switch (window.location.hash) {
+    case "#time-entries":
+      return "time-entries";
+    case "#clients":
+      return "clients";
+    case "#timekeepers":
+      return "timekeepers";
+    default:
+      return "reports";
+  }
 }
 
 export default function DashboardPage(): React.JSX.Element {
@@ -263,6 +278,34 @@ export default function DashboardPage(): React.JSX.Element {
             Time entries
           </a>
           <a
+            aria-current={destination === "clients" ? "page" : undefined}
+            className={
+              destination === "clients"
+                ? "nav-item nav-item-current"
+                : "nav-item"
+            }
+            href="#clients"
+          >
+            <span aria-hidden="true" className="nav-icon">
+              C
+            </span>
+            Clients
+          </a>
+          <a
+            aria-current={destination === "timekeepers" ? "page" : undefined}
+            className={
+              destination === "timekeepers"
+                ? "nav-item nav-item-current"
+                : "nav-item"
+            }
+            href="#timekeepers"
+          >
+            <span aria-hidden="true" className="nav-icon">
+              K
+            </span>
+            Timekeepers
+          </a>
+          <a
             aria-current={destination === "reports" ? "page" : undefined}
             className={
               destination === "reports"
@@ -290,6 +333,24 @@ export default function DashboardPage(): React.JSX.Element {
       <main className="main-content" id="main-content">
         {destination === "time-entries" ? (
           <TimeEntriesView
+            onUnauthorized={(message) => {
+              clearDevelopmentToken();
+              setToken(null);
+              setSessionMessage(message);
+            }}
+            token={token}
+          />
+        ) : destination === "clients" ? (
+          <ClientsView
+            onUnauthorized={(message) => {
+              clearDevelopmentToken();
+              setToken(null);
+              setSessionMessage(message);
+            }}
+            token={token}
+          />
+        ) : destination === "timekeepers" ? (
+          <TimekeepersView
             onUnauthorized={(message) => {
               clearDevelopmentToken();
               setToken(null);

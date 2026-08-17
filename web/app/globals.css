@@ -523,6 +523,35 @@ a {
   grid-template-columns: repeat(5, minmax(8rem, 1fr)) auto;
 }
 
+.directory-controls {
+  grid-template-columns: minmax(8rem, 16rem) auto;
+}
+
+.directory-side,
+.nested-matters {
+  display: grid;
+  gap: 1rem;
+}
+
+.readonly-banner {
+  background: #eef6fb;
+  border: 1px solid #bad8ea;
+  color: var(--ink-700);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.8rem;
+}
+
+.status-text {
+  color: var(--ink-700);
+  font-weight: 600;
+}
+
+.status-open {
+  color: var(--teal);
+}
+
 .entries-workspace {
   align-items: start;
   display: grid;
@@ -742,6 +771,7 @@ a {
   }
 
   .entries-controls,
+  .directory-controls,
   .entries-workspace {
     grid-template-columns: 1fr;
   }
@@ -844,6 +874,7 @@ a {
   .report-controls,
   .summary-grid,
   .entries-controls,
+  .directory-controls,
   .entries-workspace {
     grid-template-columns: 1fr;
   }

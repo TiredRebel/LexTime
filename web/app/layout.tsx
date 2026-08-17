@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "LexTime",
-  description: "Time entries and weekly billable rollup for the LexTime interview demo.",
+  description: "Time entries, party directories, and weekly billable rollup for the LexTime interview demo.",
 };
 
 interface RootLayoutProps {

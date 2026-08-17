@@ -857,3 +857,39 @@ Caught during implementation rather than invented afterwards:
   client) rather than only the first. Authenticated browser walkthroughs still
   need a human to paste the development token; the 007 credential-entry
   safeguard applies here too.
+
+---
+
+## Security review — feature 009 (constitution P24)
+
+`web/app/token-session.ts`, `src/LexTime.Api/Dashboard/DashboardFiles.cs`, JWT
+validation, connection strings, and SQL were not modified. Party directories
+reuse the 007 paste-and-`sessionStorage` session and the existing 006 routes.
+
+A search of `web/` found no JWT value, signing key, or literal bearer
+credential. Register and correct send JSON bodies without a client code or
+matter number on update, without a timekeeper write helper, and without a
+firm-wide matters request.
+
+No medium-or-higher finding required remediation; there was no new auth or SQL
+surface to accept.
+
+---
+
+## Feature 009 — implementation notes
+
+Caught during implementation rather than invented afterwards:
+
+- The client and timekeeper host tests are pins, not failing-first tests: both
+  collections were already 401 without a token. They exist so serving HTML
+  cannot quietly open the directories.
+- `web/app/party-lookups.ts` was left on `take=200` for Time entries pickers.
+  Directory screens use `parties-api.ts` with `skip`/`take` of 20, 50, or 100
+  so a paged Clients view cannot silently shrink the 008 matter picker.
+- Matters have no sidebar destination. Nesting them on the selected client is
+  the P3 save that kept Timekeepers in this spec.
+- Against the running host: unauthenticated `GET /` is 200 HTML;
+  `GET /api/v1/clients` and `GET /api/v1/users` are 401, same as time entries.
+  Authenticated listing, uniqueness collisions, and deactivation walkthroughs
+  still need a human to paste the development token; minting one from this
+  session was refused as credential material, matching the 007 safeguard.
