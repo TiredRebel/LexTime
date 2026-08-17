@@ -68,6 +68,7 @@ export default function DashboardPage(): React.JSX.Element {
     null,
   );
   const [destination, setDestination] = useState<ShellDestination>("reports");
+  const [navOpen, setNavOpen] = useState(false);
 
   async function loadReport(
     activeToken: string,
@@ -128,12 +129,28 @@ export default function DashboardPage(): React.JSX.Element {
   useEffect(() => {
     function syncDestination(): void {
       setDestination(destinationFromHash());
+      setNavOpen(false);
     }
 
     syncDestination();
     window.addEventListener("hashchange", syncDestination);
     return () => window.removeEventListener("hashchange", syncDestination);
   }, []);
+
+  useEffect(() => {
+    if (!navOpen) {
+      return;
+    }
+
+    function closeOnEscape(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setNavOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [navOpen]);
 
   const response =
     state.kind === "ready" || state.kind === "empty"
@@ -259,8 +276,27 @@ export default function DashboardPage(): React.JSX.Element {
       : "Current period";
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <div className={navOpen ? "app-shell nav-open" : "app-shell"}>
+      <header className="shell-topbar">
+        <div className="wordmark">LexTime</div>
+        <button
+          aria-controls="app-sidebar"
+          aria-expanded={navOpen}
+          className="nav-toggle"
+          onClick={() => setNavOpen((open) => !open)}
+          type="button"
+        >
+          {navOpen ? "Close" : "Menu"}
+        </button>
+      </header>
+      <button
+        aria-label="Close menu"
+        className="nav-backdrop"
+        hidden={!navOpen}
+        onClick={() => setNavOpen(false)}
+        type="button"
+      />
+      <aside className="sidebar" id="app-sidebar">
         <div className="wordmark">LexTime</div>
         <nav aria-label="Primary" className="side-nav">
           <a
@@ -271,6 +307,7 @@ export default function DashboardPage(): React.JSX.Element {
                 : "nav-item"
             }
             href="#time-entries"
+            onClick={() => setNavOpen(false)}
           >
             <span aria-hidden="true" className="nav-icon">
               T
@@ -285,6 +322,7 @@ export default function DashboardPage(): React.JSX.Element {
                 : "nav-item"
             }
             href="#clients"
+            onClick={() => setNavOpen(false)}
           >
             <span aria-hidden="true" className="nav-icon">
               C
@@ -299,6 +337,7 @@ export default function DashboardPage(): React.JSX.Element {
                 : "nav-item"
             }
             href="#timekeepers"
+            onClick={() => setNavOpen(false)}
           >
             <span aria-hidden="true" className="nav-icon">
               K
@@ -313,6 +352,7 @@ export default function DashboardPage(): React.JSX.Element {
                 : "nav-item"
             }
             href="#reports"
+            onClick={() => setNavOpen(false)}
           >
             <span aria-hidden="true" className="nav-icon">
               R
