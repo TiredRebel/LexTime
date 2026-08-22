@@ -615,14 +615,14 @@ function MattersPanel({
         unavailableTitle="Matters unavailable"
       />
       {mattersState.kind === "ready" && (
-        <div className="report-panel">
+        <div className="list-panel">
           <div className="panel-heading">
             <h2>Matters for {client.clientCode}</h2>
             <span className="row-count">
               {firstRow}–{lastRow} of {matterTotal} matching
             </span>
           </div>
-          <table className="rollup-table entries-table">
+          <table className="data-table data-table--wide">
             <thead>
               <tr>
                 <th scope="col">Number</th>
@@ -657,7 +657,7 @@ function MattersPanel({
                       <span
                         className={
                           row.isActive
-                            ? "status-text status-open"
+                            ? "status-text status-active"
                             : "status-text"
                         }
                       >

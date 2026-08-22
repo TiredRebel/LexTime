@@ -72,14 +72,14 @@ export function RollupTable({
   }
 
   return (
-    <div className="report-panel">
+    <div className="list-panel">
       <div className="panel-heading">
         <h2>Weekly rollup by client</h2>
         <span className="row-count">
           {firstRow}–{lastRow} of {totalRows} rows
         </span>
       </div>
-      <table className="rollup-table">
+      <table className="data-table">
         <thead>
           <tr>
             <th scope="col">Client</th>

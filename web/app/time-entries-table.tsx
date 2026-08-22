@@ -47,14 +47,14 @@ export function TimeEntriesTable({
   }
 
   return (
-    <div className="report-panel">
+    <div className="list-panel">
       <div className="panel-heading">
         <h2>Time entries</h2>
         <span className="row-count">
           {firstRow}–{lastRow} of {total} matching
         </span>
       </div>
-      <table className="rollup-table entries-table">
+      <table className="data-table data-table--wide">
         <thead>
           <tr>
             <th scope="col">Date</th>

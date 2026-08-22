@@ -122,14 +122,14 @@ export function TimekeepersView({
 
       <div className="entries-workspace">
         {state.kind === "ready" && (
-          <div className="report-panel">
+          <div className="list-panel">
             <div className="panel-heading">
               <h2>Timekeepers</h2>
               <span className="row-count">
                 {firstRow}–{lastRow} of {total} matching
               </span>
             </div>
-            <table className="rollup-table entries-table">
+            <table className="data-table data-table--wide">
               <thead>
                 <tr>
                   <th scope="col">Timekeeper</th>
@@ -164,7 +164,7 @@ export function TimekeepersView({
                         <span
                           className={
                             row.isActive
-                              ? "status-text status-open"
+                              ? "status-text status-active"
                               : "status-text"
                           }
                         >
