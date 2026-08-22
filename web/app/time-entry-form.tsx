@@ -1,5 +1,6 @@
 import { type FormEvent, useMemo, useState } from "react";
 
+import { DetailForm, DetailFormMessages, type DetailFormMessage } from "./detail-form";
 import {
   type ClientDto,
   type MatterDto,
@@ -56,6 +57,16 @@ export function todayIsoDate(): string {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function violationMessages(
+  violations: readonly DomainRuleViolation[],
+): readonly DetailFormMessage[] {
+  return violations.map((violation) => ({
+    detail: violation.detail,
+    id: `${violation.rule}-${violation.offendingValue}`,
+    rule: violation.rule,
+  }));
 }
 
 export function TimeEntryForm({
@@ -162,7 +173,10 @@ export function TimeEntryForm({
           Remove the {formatDurationHours(entry.durationMinutes)} h entry from{" "}
           {entry.workDate}? This cannot be undone.
         </p>
-        {renderMessages(localError ?? fieldError, violations)}
+        <DetailFormMessages
+          fieldError={localError ?? fieldError}
+          messages={violationMessages(violations)}
+        />
         <div className="form-actions">
           <button
             className="secondary-button"
@@ -184,179 +198,139 @@ export function TimeEntryForm({
     );
   }
 
-  const title = mode === "record" ? "Record time" : "Edit entry";
-
   return (
-    <section className="detail-pane" aria-labelledby="entry-form-title">
-      <div className="detail-header">
-        <h2 id="entry-form-title">{title}</h2>
-        <button
-          aria-label="Close"
-          className="secondary-button"
-          onClick={onCancel}
-          type="button"
-        >
-          Close
-        </button>
-      </div>
-      <form className="entry-form" onSubmit={submit} noValidate>
-        {mode === "revise" && (
-          <div className="field">
-            <span>Timekeeper</span>
-            <p className="readonly-value">{timekeeperName}</p>
-          </div>
-        )}
-        {mode === "record" && (
-          <div className="field">
-            <label htmlFor="entry-timekeeper">Timekeeper</label>
-            <select
-              id="entry-timekeeper"
-              onChange={(event) => setUserId(event.target.value)}
-              required
-              value={userId}
-            >
-              <option value="">Select a timekeeper</option>
-              {timekeepers.map((timekeeper) => (
-                <option key={timekeeper.userId} value={timekeeper.userId}>
-                  {partyLabel(timekeeper.fullName, timekeeper.isActive)}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+    <DetailForm
+      fieldError={localError ?? fieldError}
+      isSubmitting={isSubmitting}
+      messages={violationMessages(violations)}
+      onCancel={onCancel}
+      onSubmit={submit}
+      submitLabel={mode === "record" ? "Save entry" : "Save changes"}
+      title={mode === "record" ? "Record time" : "Edit entry"}
+      titleId="entry-form-title"
+    >
+      {mode === "revise" && (
         <div className="field">
-          <label htmlFor="entry-client">Client</label>
-          <select
-            id="entry-client"
-            onChange={(event) => {
-              onPickerClientChange(event.target.value);
-              setMatterId("");
-            }}
-            value={pickerClientId}
-          >
-            <option value="">Select a client</option>
-            {clients.map((client) => (
-              <option key={client.clientId} value={client.clientId}>
-                {partyLabel(client.name, client.isActive, client.clientCode)}
-              </option>
-            ))}
-          </select>
+          <span>Timekeeper</span>
+          <p className="readonly-value">{timekeeperName}</p>
         </div>
-        <div className="field">
-          <label htmlFor="entry-matter">Matter</label>
-          <select
-            id="entry-matter"
-            onChange={(event) => {
-              const nextMatterId = event.target.value;
-              setMatterId(nextMatterId);
-              const nextMatter = matters.find(
-                (matter) => String(matter.matterId) === nextMatterId,
-              );
-              if (nextMatter !== undefined && mode === "record") {
-                setIsBillable(nextMatter.isBillableByDefault);
-              }
-            }}
-            required
-            value={matterId}
-          >
-            <option value="">Select a matter</option>
-            {matters.map((matter) => (
-              <option key={matter.matterId} value={matter.matterId}>
-                {partyLabel(matter.name, matter.isActive, matter.matterNumber)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="entry-date">Work date</label>
-          <input
-            id="entry-date"
-            onChange={(event) => setWorkDate(event.target.value)}
-            required
-            type="date"
-            value={workDate}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="entry-duration">Duration (minutes)</label>
-          <input
-            id="entry-duration"
-            inputMode="numeric"
-            min={1}
-            onChange={(event) => setDurationMinutes(event.target.value)}
-            required
-            type="number"
-            value={durationMinutes}
-          />
-        </div>
-        <div className="field checkbox-field">
-          <label htmlFor="entry-billable">
-            <input
-              checked={isBillable}
-              id="entry-billable"
-              onChange={(event) => setIsBillable(event.target.checked)}
-              type="checkbox"
-            />
-            Billable
-          </label>
-        </div>
-        <div className="field">
-          <label htmlFor="entry-narrative">Narrative</label>
-          <textarea
-            id="entry-narrative"
-            onChange={(event) => setNarrative(event.target.value)}
-            required
-            rows={4}
-            value={narrative}
-          />
-        </div>
-        {capturedRate !== null && (
-          <div className="field">
-            <span>Captured rate</span>
-            <p className="readonly-value">{formatCurrency(capturedRate)}</p>
-          </div>
-        )}
-        {selectedMatter !== undefined && mode === "record" && (
-          <p className="muted">
-            Default billable flag comes from the matter and can be changed per
-            entry.
-          </p>
-        )}
-        {renderMessages(localError ?? fieldError, violations)}
-        <div className="form-actions">
-          <button className="secondary-button" onClick={onCancel} type="button">
-            Cancel
-          </button>
-          <button className="primary-button" disabled={isSubmitting} type="submit">
-            {mode === "record" ? "Save entry" : "Save changes"}
-          </button>
-        </div>
-      </form>
-    </section>
-  );
-}
-
-function renderMessages(
-  fieldError: string | null,
-  violations: readonly DomainRuleViolation[],
-): React.JSX.Element | null {
-  if (fieldError === null && violations.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="form-messages" role="alert">
-      {fieldError !== null && <p className="field-error">{fieldError}</p>}
-      {violations.length > 0 && (
-        <ul className="violation-list">
-          {violations.map((violation) => (
-            <li key={`${violation.rule}-${violation.offendingValue}`}>
-              <span className="violation-rule">{violation.rule}</span>
-              {violation.detail}
-            </li>
-          ))}
-        </ul>
       )}
-    </div>
+      {mode === "record" && (
+        <div className="field">
+          <label htmlFor="entry-timekeeper">Timekeeper</label>
+          <select
+            id="entry-timekeeper"
+            onChange={(event) => setUserId(event.target.value)}
+            required
+            value={userId}
+          >
+            <option value="">Select a timekeeper</option>
+            {timekeepers.map((timekeeper) => (
+              <option key={timekeeper.userId} value={timekeeper.userId}>
+                {partyLabel(timekeeper.fullName, timekeeper.isActive)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <div className="field">
+        <label htmlFor="entry-client">Client</label>
+        <select
+          id="entry-client"
+          onChange={(event) => {
+            onPickerClientChange(event.target.value);
+            setMatterId("");
+          }}
+          value={pickerClientId}
+        >
+          <option value="">Select a client</option>
+          {clients.map((client) => (
+            <option key={client.clientId} value={client.clientId}>
+              {partyLabel(client.name, client.isActive, client.clientCode)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor="entry-matter">Matter</label>
+        <select
+          id="entry-matter"
+          onChange={(event) => {
+            const nextMatterId = event.target.value;
+            setMatterId(nextMatterId);
+            const nextMatter = matters.find(
+              (matter) => String(matter.matterId) === nextMatterId,
+            );
+            if (nextMatter !== undefined && mode === "record") {
+              setIsBillable(nextMatter.isBillableByDefault);
+            }
+          }}
+          required
+          value={matterId}
+        >
+          <option value="">Select a matter</option>
+          {matters.map((matter) => (
+            <option key={matter.matterId} value={matter.matterId}>
+              {partyLabel(matter.name, matter.isActive, matter.matterNumber)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor="entry-date">Work date</label>
+        <input
+          id="entry-date"
+          onChange={(event) => setWorkDate(event.target.value)}
+          required
+          type="date"
+          value={workDate}
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="entry-duration">Duration (minutes)</label>
+        <input
+          id="entry-duration"
+          inputMode="numeric"
+          min={1}
+          onChange={(event) => setDurationMinutes(event.target.value)}
+          required
+          type="number"
+          value={durationMinutes}
+        />
+      </div>
+      <div className="field checkbox-field">
+        <label htmlFor="entry-billable">
+          <input
+            checked={isBillable}
+            id="entry-billable"
+            onChange={(event) => setIsBillable(event.target.checked)}
+            type="checkbox"
+          />
+          Billable
+        </label>
+      </div>
+      <div className="field">
+        <label htmlFor="entry-narrative">Narrative</label>
+        <textarea
+          id="entry-narrative"
+          onChange={(event) => setNarrative(event.target.value)}
+          required
+          rows={4}
+          value={narrative}
+        />
+      </div>
+      {capturedRate !== null && (
+        <div className="field">
+          <span>Captured rate</span>
+          <p className="readonly-value">{formatCurrency(capturedRate)}</p>
+        </div>
+      )}
+      {selectedMatter !== undefined && mode === "record" && (
+        <p className="muted">
+          Default billable flag comes from the matter and can be changed per
+          entry.
+        </p>
+      )}
+    </DetailForm>
   );
 }

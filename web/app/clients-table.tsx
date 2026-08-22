@@ -42,14 +42,14 @@ export function ClientsTable({
   }
 
   return (
-    <div className="report-panel">
+    <div className="list-panel">
       <div className="panel-heading">
         <h2>Clients</h2>
         <span className="row-count">
           {firstRow}–{lastRow} of {total} matching
         </span>
       </div>
-      <table className="rollup-table entries-table">
+      <table className="data-table data-table--wide">
         <thead>
           <tr>
             <th scope="col">Code</th>
@@ -80,7 +80,7 @@ export function ClientsTable({
                 <td data-label="Active">
                   <span
                     className={
-                      row.isActive ? "status-text status-open" : "status-text"
+                      row.isActive ? "status-text status-active" : "status-text"
                     }
                   >
                     {formatActiveFlag(row.isActive)}

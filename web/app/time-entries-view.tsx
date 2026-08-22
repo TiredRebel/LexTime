@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
+import { DetailPanel } from "./detail-form";
 import {
   type ClientDto,
   getMatter,
@@ -633,7 +634,6 @@ function TimeEntriesStatus({
   switch (state.kind) {
     case "idle":
     case "ready":
-    case "blocked-range":
       return null;
     case "loading":
       return (
@@ -643,6 +643,18 @@ function TimeEntriesStatus({
           className="loading-bar"
           role="progressbar"
         />
+      );
+    case "blocked-range":
+      return (
+        <section className="status-panel status-error" role="alert">
+          <div>
+            <h2>No time entries shown</h2>
+            <p>
+              Fix the date range above — its start can&rsquo;t be after its
+              end — to see the listing again.
+            </p>
+          </div>
+        </section>
       );
     case "empty":
       return (
@@ -713,9 +725,18 @@ function TimeEntryDetail({
   timekeeperLabel,
 }: TimeEntryDetailProps): React.JSX.Element {
   return (
-    <section className="detail-pane" aria-labelledby="entry-detail-title">
-      <div className="detail-header">
-        <h2 id="entry-detail-title">Time entry details</h2>
+    <DetailPanel
+      actions={
+        <>
+          <button className="secondary-button" onClick={onDelete} type="button">
+            Delete
+          </button>
+          <button className="primary-button" onClick={onEdit} type="button">
+            Edit entry
+          </button>
+        </>
+      }
+      headerAction={
         <button
           aria-label="Close details"
           className="secondary-button"
@@ -724,7 +745,10 @@ function TimeEntryDetail({
         >
           Close
         </button>
-      </div>
+      }
+      title="Time entry details"
+      titleId="entry-detail-title"
+    >
       <dl className="detail-list">
         <div>
           <dt>Work date</dt>
@@ -766,14 +790,6 @@ function TimeEntryDetail({
           <dd>{entry.updatedAtUtc ?? "Never"}</dd>
         </div>
       </dl>
-      <div className="form-actions">
-        <button className="secondary-button" onClick={onDelete} type="button">
-          Delete
-        </button>
-        <button className="primary-button" onClick={onEdit} type="button">
-          Edit entry
-        </button>
-      </div>
-    </section>
+    </DetailPanel>
   );
 }

@@ -92,7 +92,17 @@ export function ReportStatus({
         />
       );
     case "blocked-range":
-      return null;
+      return (
+        <section className="status-panel status-error" role="alert">
+          <div>
+            <h2>No report shown</h2>
+            <p>
+              Fix the date range above — its start can&rsquo;t be after its
+              end — to see the weekly rollup again.
+            </p>
+          </div>
+        </section>
+      );
     case "empty":
       return (
         <section className="status-panel status-empty" role="status">

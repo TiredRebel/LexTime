@@ -3,7 +3,6 @@
   --navy-900: #102c45;
   --navy-800: #1a3f5c;
   --blue-700: #1f4e79;
-  --blue-100: #e4edf4;
   --ink-900: #1a1714;
   --ink-700: #3f3a36;
   --ink-500: #6b6460;
@@ -13,9 +12,8 @@
   --canvas: #e7ece8;
   --paper: #f6f7f4;
   --margin: #9e2b2f;
-  --teal: #1a8b7d;
-  --teal-soft: #e6f5f1;
-  --red: #9e2b2f;
+  --teal: #126056;
+  --red: var(--margin);
   --red-soft: #f7ecec;
   --shadow: none;
   --serif: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
@@ -197,6 +195,12 @@ a {
   width: 100%;
 }
 
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"],
+.field textarea[aria-invalid="true"] {
+  border-color: var(--red);
+}
+
 .field select,
 .page-size select {
   appearance: none;
@@ -236,6 +240,7 @@ a {
 .secondary-button,
 .danger-button {
   border: 1px solid transparent;
+  box-shadow: var(--shadow);
   font-weight: 700;
   height: var(--control-height);
   line-height: 1;
@@ -462,6 +467,7 @@ a {
   background: var(--paper);
   border: 1px solid var(--line);
   border-left: 3px solid var(--margin);
+  box-shadow: var(--shadow);
   padding: 0.95rem 1.1rem;
 }
 
@@ -481,10 +487,11 @@ a {
   text-transform: uppercase;
 }
 
-.report-panel {
+.list-panel {
   background: var(--paper);
   border: 1px solid var(--line);
   border-left: 3px solid var(--margin);
+  box-shadow: var(--shadow);
   max-width: 100%;
   min-width: 0;
   overflow-x: auto;
@@ -513,12 +520,12 @@ a {
   font-size: 0.78rem;
 }
 
-.rollup-table {
+.data-table {
   border-collapse: collapse;
   width: 100%;
 }
 
-.rollup-table th {
+.data-table th {
   background: transparent;
   color: var(--ink-500);
   font-size: 0.66rem;
@@ -528,12 +535,12 @@ a {
   text-transform: uppercase;
 }
 
-.rollup-table th:first-child,
-.rollup-table th:nth-child(2) {
+.data-table th:first-child,
+.data-table th:nth-child(2) {
   text-align: left;
 }
 
-.rollup-table td {
+.data-table td {
   border-top: 1px solid var(--line);
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
@@ -543,12 +550,12 @@ a {
   vertical-align: middle;
 }
 
-.rollup-table td:first-child,
-.rollup-table td:nth-child(2) {
+.data-table td:first-child,
+.data-table td:nth-child(2) {
   text-align: left;
 }
 
-.rollup-table tbody tr:hover {
+.data-table tbody tr:hover {
   background: rgb(158 43 47 / 5%);
 }
 
@@ -600,11 +607,11 @@ a {
 }
 
 @media (min-width: 721px) {
-  .rollup-table {
+  .data-table {
     min-width: 44rem;
   }
 
-  .entries-table {
+  .data-table--wide {
     min-width: 52rem;
   }
 }
@@ -663,7 +670,7 @@ a {
   font-weight: 600;
 }
 
-.status-open {
+.status-active {
   color: var(--teal);
 }
 
@@ -681,7 +688,7 @@ a {
   grid-template-columns: minmax(0, 1.15fr) minmax(18rem, 26rem);
 }
 
-.entries-table .row-select {
+.data-table--wide .row-select {
   background: none;
   border: 0;
   color: var(--ink-900);
@@ -695,8 +702,8 @@ a {
   text-underline-offset: 0.18em;
 }
 
-.entries-table .row-select:hover,
-.entries-table .row-select:focus-visible {
+.data-table--wide .row-select:hover,
+.data-table--wide .row-select:focus-visible {
   color: var(--navy-900);
   text-decoration-color: currentColor;
 }
@@ -709,6 +716,7 @@ a {
   background: var(--paper);
   border: 1px solid var(--line);
   border-left: 3px solid var(--margin);
+  box-shadow: var(--shadow);
   max-width: 100%;
   min-width: 0;
   padding: 1.15rem 1.25rem 1.35rem;
@@ -819,6 +827,7 @@ a {
 .status-panel {
   align-items: start;
   border: 1px solid var(--line);
+  box-shadow: var(--shadow);
   display: flex;
   flex-wrap: wrap;
   gap: 0.9rem;
@@ -1012,11 +1021,11 @@ a {
     flex: 1;
   }
 
-  .rollup-table {
+  .data-table {
     min-width: 0;
   }
 
-  .rollup-table thead {
+  .data-table thead {
     clip: rect(0 0 0 0);
     clip-path: inset(50%);
     height: 1px;
@@ -1026,21 +1035,21 @@ a {
     width: 1px;
   }
 
-  .rollup-table,
-  .rollup-table tbody,
-  .rollup-table tr,
-  .rollup-table td {
+  .data-table,
+  .data-table tbody,
+  .data-table tr,
+  .data-table td {
     display: block;
     width: 100%;
   }
 
-  .rollup-table tbody {
+  .data-table tbody {
     display: grid;
     gap: 0.65rem;
     padding: 0.75rem;
   }
 
-  .rollup-table tr {
+  .data-table tr {
     background: var(--paper);
     border: 1px solid var(--line);
     border-left: 3px solid var(--margin);
@@ -1050,26 +1059,26 @@ a {
     padding: 0.7rem 0.75rem;
   }
 
-  .entries-table td[data-label="Narrative"] {
+  .data-table--wide td[data-label="Narrative"] {
     grid-column: 1 / -1;
   }
 
-  .entries-table td[data-label="Duration"] {
+  .data-table--wide td[data-label="Duration"] {
     font-family: var(--serif);
     font-size: 1.45rem;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.03em;
   }
 
-  .rollup-table td,
-  .rollup-table td:first-child,
-  .rollup-table td:nth-child(2) {
+  .data-table td,
+  .data-table td:first-child,
+  .data-table td:nth-child(2) {
     border: 0;
     padding: 0.55rem;
     text-align: left;
   }
 
-  .rollup-table td::before {
+  .data-table td::before {
     color: var(--ink-500);
     content: attr(data-label);
     display: block;
@@ -1101,7 +1110,7 @@ a {
 }
 
 @media (max-width: 480px) {
-  .rollup-table tr {
+  .data-table tr {
     grid-template-columns: 1fr;
   }
 

@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from "react";
 
+import { DetailForm, type DetailFormMessage } from "./detail-form";
 import {
   type ClientDto,
   formatActiveFlag,
@@ -70,101 +71,69 @@ export function ClientForm({
     onSubmitCorrect({ isActive, name: trimmedName });
   }
 
-  const title = mode === "register" ? "Add client" : "Edit client";
+  const messages: readonly DetailFormMessage[] =
+    conflictField === null
+      ? []
+      : [
+          {
+            detail:
+              conflictValue === null
+                ? "This value is already in use."
+                : `Conflicting value: ${conflictValue}`,
+            rule: conflictField,
+          },
+        ];
 
   return (
-    <section className="detail-pane" aria-labelledby="client-form-title">
-      <div className="detail-header">
-        <h2 id="client-form-title">{title}</h2>
-        <button
-          aria-label="Close"
-          className="secondary-button"
-          onClick={onCancel}
-          type="button"
-        >
-          Close
-        </button>
-      </div>
-      <form className="entry-form" noValidate onSubmit={submit}>
-        {mode === "register" ? (
-          <div className="field">
-            <label htmlFor="client-code">Client code</label>
-            <input
-              autoComplete="off"
-              id="client-code"
-              onChange={(event) => setClientCode(event.target.value)}
-              required
-              value={clientCode}
-            />
-          </div>
-        ) : (
-          <div className="field">
-            <span>Client code</span>
-            <p className="readonly-value">{client?.clientCode}</p>
-          </div>
-        )}
+    <DetailForm
+      fieldError={localError ?? fieldError}
+      isSubmitting={isSubmitting}
+      messages={messages}
+      onCancel={onCancel}
+      onSubmit={submit}
+      submitLabel={mode === "register" ? "Save client" : "Save changes"}
+      title={mode === "register" ? "Add client" : "Edit client"}
+      titleId="client-form-title"
+    >
+      {mode === "register" ? (
         <div className="field">
-          <label htmlFor="client-name">Client name</label>
+          <label htmlFor="client-code">Client code</label>
           <input
-            id="client-name"
-            onChange={(event) => setName(event.target.value)}
+            autoComplete="off"
+            id="client-code"
+            onChange={(event) => setClientCode(event.target.value)}
             required
-            value={name}
+            value={clientCode}
           />
         </div>
-        {mode === "correct" && (
-          <div className="field checkbox-field">
-            <label htmlFor="client-active">
-              <input
-                checked={isActive}
-                id="client-active"
-                onChange={(event) => setIsActive(event.target.checked)}
-                type="checkbox"
-              />
-              {formatActiveFlag(isActive)}
-            </label>
-          </div>
-        )}
-        {renderMessages(
-          localError ?? fieldError,
-          conflictField,
-          conflictValue,
-        )}
-        <div className="form-actions">
-          <button className="secondary-button" onClick={onCancel} type="button">
-            Cancel
-          </button>
-          <button className="primary-button" disabled={isSubmitting} type="submit">
-            {mode === "register" ? "Save client" : "Save changes"}
-          </button>
+      ) : (
+        <div className="field">
+          <span>Client code</span>
+          <p className="readonly-value">{client?.clientCode}</p>
         </div>
-      </form>
-    </section>
-  );
-}
-
-function renderMessages(
-  fieldError: string | null,
-  conflictField: string | null,
-  conflictValue: string | null,
-): React.JSX.Element | null {
-  if (fieldError === null && conflictField === null) {
-    return null;
-  }
-
-  return (
-    <div className="form-messages" role="alert">
-      {fieldError !== null && <p className="field-error">{fieldError}</p>}
-      {conflictField !== null && (
-        <ul className="violation-list">
-          <li>
-            <span className="violation-rule">{conflictField}</span>
-            {conflictValue === null
-              ? "This value is already in use."
-              : `Conflicting value: ${conflictValue}`}
-          </li>
-        </ul>
       )}
-    </div>
+      <div className="field">
+        <label htmlFor="client-name">Client name</label>
+        <input
+          id="client-name"
+          onChange={(event) => setName(event.target.value)}
+          required
+          value={name}
+        />
+      </div>
+      {mode === "correct" && (
+        <div className="field checkbox-field">
+          <label htmlFor="client-active">
+            <input
+              checked={isActive}
+              id="client-active"
+              onChange={(event) => setIsActive(event.target.checked)}
+              type="checkbox"
+            />
+            {formatActiveFlag(isActive)}
+          </label>
+        </div>
+      )}
+    </DetailForm>
   );
 }
