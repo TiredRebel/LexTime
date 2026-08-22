@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from "react";
 
+import { DetailForm, type DetailFormMessage } from "./detail-form";
 import {
   type MatterDto,
   formatActiveFlag,
@@ -85,118 +86,84 @@ export function MatterForm({
     });
   }
 
-  const title = mode === "open" ? "Open matter" : "Edit matter";
+  const messages: readonly DetailFormMessage[] =
+    conflictField === null
+      ? []
+      : [
+          {
+            detail:
+              conflictValue === null
+                ? "This value is already in use."
+                : `Conflicting value: ${conflictValue}`,
+            rule: conflictField,
+          },
+        ];
 
   return (
-    <section className="detail-pane" aria-labelledby="matter-form-title">
-      <div className="detail-header">
-        <h2 id="matter-form-title">{title}</h2>
-        <button
-          aria-label="Close"
-          className="secondary-button"
-          onClick={onCancel}
-          type="button"
-        >
-          Close
-        </button>
+    <DetailForm
+      fieldError={localError ?? fieldError}
+      isSubmitting={isSubmitting}
+      messages={messages}
+      onCancel={onCancel}
+      onSubmit={submit}
+      submitLabel={mode === "open" ? "Save matter" : "Save changes"}
+      title={mode === "open" ? "Open matter" : "Edit matter"}
+      titleId="matter-form-title"
+    >
+      <div className="field">
+        <span>Client</span>
+        <p className="readonly-value">{clientLabel}</p>
       </div>
-      <form className="entry-form" noValidate onSubmit={submit}>
+      {mode === "open" ? (
         <div className="field">
-          <span>Client</span>
-          <p className="readonly-value">{clientLabel}</p>
-        </div>
-        {mode === "open" ? (
-          <div className="field">
-            <label htmlFor="matter-number">Matter number</label>
-            <input
-              autoComplete="off"
-              id="matter-number"
-              onChange={(event) => setMatterNumber(event.target.value)}
-              required
-              value={matterNumber}
-            />
-          </div>
-        ) : (
-          <div className="field">
-            <span>Matter number</span>
-            <p className="readonly-value">{matter?.matterNumber}</p>
-          </div>
-        )}
-        <div className="field">
-          <label htmlFor="matter-name">Matter name</label>
+          <label htmlFor="matter-number">Matter number</label>
           <input
-            id="matter-name"
-            onChange={(event) => setName(event.target.value)}
+            autoComplete="off"
+            id="matter-number"
+            onChange={(event) => setMatterNumber(event.target.value)}
             required
-            value={name}
+            value={matterNumber}
           />
         </div>
+      ) : (
+        <div className="field">
+          <span>Matter number</span>
+          <p className="readonly-value">{matter?.matterNumber}</p>
+        </div>
+      )}
+      <div className="field">
+        <label htmlFor="matter-name">Matter name</label>
+        <input
+          id="matter-name"
+          onChange={(event) => setName(event.target.value)}
+          required
+          value={name}
+        />
+      </div>
+      <div className="field checkbox-field">
+        <label htmlFor="matter-billable">
+          <input
+            checked={isBillableByDefault}
+            id="matter-billable"
+            onChange={(event) => setIsBillableByDefault(event.target.checked)}
+            type="checkbox"
+          />
+          Default billable
+        </label>
+      </div>
+      {mode === "correct" && (
         <div className="field checkbox-field">
-          <label htmlFor="matter-billable">
+          <label htmlFor="matter-active">
             <input
-              checked={isBillableByDefault}
-              id="matter-billable"
-              onChange={(event) =>
-                setIsBillableByDefault(event.target.checked)
-              }
+              checked={isActive}
+              id="matter-active"
+              onChange={(event) => setIsActive(event.target.checked)}
               type="checkbox"
             />
-            Default billable
+            {formatActiveFlag(isActive)}
           </label>
         </div>
-        {mode === "correct" && (
-          <div className="field checkbox-field">
-            <label htmlFor="matter-active">
-              <input
-                checked={isActive}
-                id="matter-active"
-                onChange={(event) => setIsActive(event.target.checked)}
-                type="checkbox"
-              />
-              {formatActiveFlag(isActive)}
-            </label>
-          </div>
-        )}
-        {renderMessages(
-          localError ?? fieldError,
-          conflictField,
-          conflictValue,
-        )}
-        <div className="form-actions">
-          <button className="secondary-button" onClick={onCancel} type="button">
-            Cancel
-          </button>
-          <button className="primary-button" disabled={isSubmitting} type="submit">
-            {mode === "open" ? "Save matter" : "Save changes"}
-          </button>
-        </div>
-      </form>
-    </section>
-  );
-}
-
-function renderMessages(
-  fieldError: string | null,
-  conflictField: string | null,
-  conflictValue: string | null,
-): React.JSX.Element | null {
-  if (fieldError === null && conflictField === null) {
-    return null;
-  }
-
-  return (
-    <div className="form-messages" role="alert">
-      {fieldError !== null && <p className="field-error">{fieldError}</p>}
-      {conflictField !== null && (
-        <ul className="violation-list">
-          <li>
-            <span className="violation-rule">{conflictField}</span>
-            {conflictValue === null
-              ? "This value is already in use."
-              : `Conflicting value: ${conflictValue}`}
-          </li>
-        </ul>
       )}
-    </div>
+    </DetailForm>
   );
 }

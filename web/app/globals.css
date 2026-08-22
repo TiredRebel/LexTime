@@ -13,9 +13,9 @@
   --canvas: #e7ece8;
   --paper: #f6f7f4;
   --margin: #9e2b2f;
-  --teal: #1a8b7d;
+  --teal: #126056;
   --teal-soft: #e6f5f1;
-  --red: #9e2b2f;
+  --red: var(--margin);
   --red-soft: #f7ecec;
   --shadow: none;
   --serif: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
@@ -195,6 +195,12 @@ a {
   min-height: var(--control-height);
   padding: 0.45rem 0.75rem;
   width: 100%;
+}
+
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"],
+.field textarea[aria-invalid="true"] {
+  border-color: var(--red);
 }
 
 .field select,
