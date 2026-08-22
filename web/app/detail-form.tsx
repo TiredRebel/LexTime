@@ -41,6 +41,39 @@ export function DetailFormMessages({
   );
 }
 
+interface DetailPanelProps {
+  readonly actions?: ReactNode;
+  readonly children: ReactNode;
+  readonly headerAction: ReactNode;
+  readonly title: string;
+  readonly titleId: string;
+}
+
+/**
+ * Shared chrome for the read-only detail panels (client, matter, time entry,
+ * timekeeper): the detail-pane section and its header (title + a header
+ * action, usually Close). Body content and an optional actions row are
+ * passed in — this is the non-form sibling of DetailForm below.
+ */
+export function DetailPanel({
+  actions,
+  children,
+  headerAction,
+  title,
+  titleId,
+}: DetailPanelProps): React.JSX.Element {
+  return (
+    <section aria-labelledby={titleId} className="detail-pane">
+      <div className="detail-header">
+        <h2 id={titleId}>{title}</h2>
+        {headerAction}
+      </div>
+      {children}
+      {actions !== undefined && <div className="form-actions">{actions}</div>}
+    </section>
+  );
+}
+
 interface DetailFormProps {
   readonly children: ReactNode;
   readonly fieldError: string | null;

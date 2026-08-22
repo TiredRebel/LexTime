@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { DetailPanel } from "./detail-form";
 import {
   formatActiveFlag,
   getTimekeeper,
@@ -234,9 +235,8 @@ export function TimekeepersView({
         )}
 
         {selected !== null && (
-          <section className="detail-pane" aria-labelledby="timekeeper-detail-title">
-            <div className="detail-header">
-              <h2 id="timekeeper-detail-title">{selected.fullName}</h2>
+          <DetailPanel
+            headerAction={
               <button
                 aria-label="Close details"
                 className="secondary-button"
@@ -245,7 +245,10 @@ export function TimekeepersView({
               >
                 Close
               </button>
-            </div>
+            }
+            title={selected.fullName}
+            titleId="timekeeper-detail-title"
+          >
             <p className="readonly-banner" role="note">
               Read-only profile. Timekeepers are seeded and cannot be created
               or edited here.
@@ -264,7 +267,7 @@ export function TimekeepersView({
                 <dd>{formatActiveFlag(selected.isActive)}</dd>
               </div>
             </dl>
-          </section>
+          </DetailPanel>
         )}
       </div>
     </>

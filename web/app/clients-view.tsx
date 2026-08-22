@@ -7,6 +7,7 @@ import {
   type RegisterClientValues,
 } from "./client-form";
 import { ClientsTable } from "./clients-table";
+import { DetailPanel } from "./detail-form";
 import {
   MatterForm,
   type CorrectMatterValues,
@@ -529,9 +530,18 @@ function ClientDetail({
   onOpenMatter,
 }: ClientDetailProps): React.JSX.Element {
   return (
-    <section className="detail-pane" aria-labelledby="client-detail-title">
-      <div className="detail-header">
-        <h2 id="client-detail-title">{client.name}</h2>
+    <DetailPanel
+      actions={
+        <>
+          <button className="secondary-button" onClick={onCorrect} type="button">
+            Edit client
+          </button>
+          <button className="primary-button" onClick={onOpenMatter} type="button">
+            Open matter
+          </button>
+        </>
+      }
+      headerAction={
         <button
           aria-label="Close details"
           className="secondary-button"
@@ -540,7 +550,10 @@ function ClientDetail({
         >
           Close
         </button>
-      </div>
+      }
+      title={client.name}
+      titleId="client-detail-title"
+    >
       <dl className="detail-list">
         <div>
           <dt>Client code</dt>
@@ -555,15 +568,7 @@ function ClientDetail({
           <dd>{formatUtcDate(client.createdAtUtc)}</dd>
         </div>
       </dl>
-      <div className="form-actions">
-        <button className="secondary-button" onClick={onCorrect} type="button">
-          Edit client
-        </button>
-        <button className="primary-button" onClick={onOpenMatter} type="button">
-          Open matter
-        </button>
-      </div>
-    </section>
+    </DetailPanel>
   );
 }
 
@@ -718,9 +723,8 @@ function MattersPanel({
         </div>
       )}
       {selectedMatter !== null && (
-        <section className="detail-pane" aria-labelledby="matter-detail-title">
-          <div className="detail-header">
-            <h2 id="matter-detail-title">{selectedMatter.name}</h2>
+        <DetailPanel
+          headerAction={
             <button
               className="secondary-button"
               onClick={onCorrectMatter}
@@ -728,7 +732,10 @@ function MattersPanel({
             >
               Edit matter
             </button>
-          </div>
+          }
+          title={selectedMatter.name}
+          titleId="matter-detail-title"
+        >
           <dl className="detail-list">
             <div>
               <dt>Matter number</dt>
@@ -749,7 +756,7 @@ function MattersPanel({
               <dd>{formatActiveFlag(selectedMatter.isActive)}</dd>
             </div>
           </dl>
-        </section>
+        </DetailPanel>
       )}
     </div>
   );
