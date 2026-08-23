@@ -40,6 +40,17 @@ export function DevelopmentTokenPrompt({
             Paste the development token printed by{" "}
             <code>Initialize-LocalDb.ps1</code>. It stays in this tab only.
           </p>
+          <p className="muted">
+            Don&rsquo;t have one?{" "}
+            <a
+              href="https://github.com/TiredRebel/LexTime#quickstart"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Run the two-command quickstart
+            </a>{" "}
+            &mdash; it prints a fresh token to paste here.
+          </p>
           <div className="field token-field">
             <label htmlFor="development-token">Development token</label>
             <input

@@ -223,6 +223,18 @@ a {
   line-height: 1.55;
 }
 
+.muted a {
+  color: var(--navy-900);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.18em;
+}
+
+.muted a:hover,
+.muted a:focus-visible {
+  text-decoration-color: currentColor;
+}
+
 .field {
   display: grid;
   gap: var(--space-10);
