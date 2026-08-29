@@ -82,6 +82,37 @@ npm run build
 The build replaces `src/LexTime.Api/wwwroot/` deterministically; `dotnet build`
 does not invoke npm.
 
+## Screenshots
+
+**Reviewer access.** No account, no password, no identity provider — paste the
+bearer token the bootstrap script printed and open the dashboard.
+
+![LexTime reviewer access / sign-in](docs/images/login.png)
+
+**Time entries.** Date range, timekeeper, matter and full-text filters over
+the write path; total/billable time, entry count and realization tiles above
+a paged, six-minute-increment ledger.
+
+![LexTime time entries](docs/images/time-entries.png)
+
+**Clients.** Active/inactive/total counts, the client directory, and a detail
+panel — active-status toggle, billed-to-date vs. unbilled, and that client's
+matters — opened from a row.
+
+![LexTime clients](docs/images/clients.png)
+
+**Timekeepers.** Rate, hours and a utilization bar per timekeeper over the
+selected period, with firm-wide headcount, hours, average rate and average
+utilization above.
+
+![LexTime timekeepers](docs/images/timekeepers.png)
+
+**Reports — the weekly billable rollup.** The headline procedure rendered
+directly: billable/non-billable hours, amount, cumulative total, delta vs.
+the prior week, and a dense rank, per client.
+
+![LexTime weekly billable rollup](docs/images/weekly-rollup.png)
+
 ## Architecture
 
 Four projects, dependencies pointing inward, enforced by project references —
