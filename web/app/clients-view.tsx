@@ -1,4 +1,18 @@
+import { Plus } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
+
+import {
+  AlertBanner,
+  btn,
+  Card,
+  field,
+  LoadingBar,
+  PageHeader,
+  StatStrip,
+  td,
+  th,
+} from "@/components/kit";
+import { cn } from "@/lib/utils";
 
 import {
   ClientForm,
@@ -348,14 +362,26 @@ export function ClientsView({
 
   return (
     <>
-      <header className="report-header">
-        <div>
-          <p className="eyebrow">Directories</p>
-          <h1 className="report-title">Clients</h1>
-          <p className="period-label">Status filter: {statusLabel}</p>
-        </div>
+      <PageHeader title="Clients">
+        <select
+          className={cn(field, "w-auto")}
+          id="client-status"
+          onChange={(event) => {
+            const nextStatus = event.target.value as ClientStatusFilter;
+            setStatus(nextStatus);
+            setPage(1);
+            setSelected(null);
+            setSelectedMatter(null);
+            void loadClients(token, nextStatus, 1, pageSize);
+          }}
+          value={status}
+        >
+          <option value="all">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
         <button
-          className="primary-button"
+          className={btn.primary}
           onClick={() => {
             setClientFormMode("register");
             setMatterFormMode(null);
@@ -363,29 +389,27 @@ export function ClientsView({
           }}
           type="button"
         >
-          Add client
+          <Plus className="size-3.5" /> Add client
         </button>
-      </header>
+      </PageHeader>
 
-      <form className="report-controls directory-controls" onSubmit={applyStatus}>
-        <div className="field">
-          <label htmlFor="client-status">Status</label>
-          <select
-            id="client-status"
-            onChange={(event) =>
-              setStatus(event.target.value as ClientStatusFilter)
-            }
-            value={status}
-          >
-            <option value="all">All</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
-        <button className="primary-button" type="submit">
-          Apply
-        </button>
-      </form>
+      <StatStrip
+        cols={3}
+        items={[
+          {
+            label: "Filter",
+            value: statusLabel,
+          },
+          {
+            label: "Shown",
+            value: String(total),
+          },
+          {
+            label: "Page",
+            value: `${page} / ${pageCount}`,
+          },
+        ]}
+      />
 
       <DirectoryStatus
         emptyTitle="No matching clients"
@@ -396,7 +420,7 @@ export function ClientsView({
         unavailableTitle="Clients unavailable"
       />
 
-      <div className="entries-workspace">
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         {state.kind === "ready" && (
           <ClientsTable
             onNextPage={() => {
@@ -420,7 +444,7 @@ export function ClientsView({
           />
         )}
 
-        <div className="directory-side">
+        <div className="space-y-5">
           {clientFormMode !== null ? (
             <ClientForm
               client={selected}
@@ -533,10 +557,10 @@ function ClientDetail({
     <DetailPanel
       actions={
         <>
-          <button className="secondary-button" onClick={onCorrect} type="button">
+          <button className={btn.ghost} onClick={onCorrect} type="button">
             Edit client
           </button>
-          <button className="primary-button" onClick={onOpenMatter} type="button">
+          <button className={btn.primary} onClick={onOpenMatter} type="button">
             Open matter
           </button>
         </>
@@ -544,7 +568,7 @@ function ClientDetail({
       headerAction={
         <button
           aria-label="Close details"
-          className="secondary-button"
+          className="rounded border border-white/25 px-2 py-1 text-[11px] font-medium text-white/80 transition-colors hover:bg-white/10"
           onClick={onClose}
           type="button"
         >
@@ -620,64 +644,51 @@ function MattersPanel({
         unavailableTitle="Matters unavailable"
       />
       {mattersState.kind === "ready" && (
-        <div className="list-panel">
-          <div className="panel-heading">
-            <h2>Matters for {client.clientCode}</h2>
-            <span className="row-count">
-              {firstRow}–{lastRow} of {matterTotal} matching
-            </span>
-          </div>
-          <table className="data-table data-table--wide">
+        <Card
+          meta={`${firstRow}–${lastRow} of ${matterTotal} matching`}
+          title={`Matters for ${client.clientCode}`}
+        >
+          <table className="w-full text-left">
             <thead>
-              <tr>
-                <th scope="col">Number</th>
-                <th scope="col">Matter name</th>
-                <th scope="col">Default billable</th>
-                <th scope="col">Active</th>
+              <tr className="border-b border-slate-200">
+                <th className={th}>Number</th>
+                <th className={th}>Matter name</th>
+                <th className={cn(th, "text-center")}>Default billable</th>
+                <th className={cn(th, "text-center")}>Active</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {matterRows.map((row) => {
                 const isSelected = row.matterId === selectedMatter?.matterId;
                 return (
                   <tr
-                    className={isSelected ? "row-selected" : undefined}
                     key={row.matterId}
+                    className={cn(
+                      "cursor-pointer transition-colors duration-150 hover:bg-slate-50",
+                      isSelected && "bg-brand/[0.07]",
+                    )}
+                    onClick={() => onSelectMatter(row)}
                   >
-                    <td data-label="Number">
-                      <button
-                        aria-current={isSelected ? "true" : undefined}
-                        className="row-select"
-                        onClick={() => onSelectMatter(row)}
-                        type="button"
-                      >
-                        {row.matterNumber}
-                      </button>
+                    <td className={cn(td, "font-semibold", isSelected ? "text-brand" : "")}>
+                      {row.matterNumber}
                     </td>
-                    <td data-label="Matter name">{row.name}</td>
-                    <td data-label="Default billable">
+                    <td className={td}>{row.name}</td>
+                    <td className={cn(td, "text-center text-slate-600")}>
                       {row.isBillableByDefault ? "Yes" : "No"}
                     </td>
-                    <td data-label="Active">
-                      <span
-                        className={
-                          row.isActive
-                            ? "status-text status-active"
-                            : "status-text"
-                        }
-                      >
-                        {formatActiveFlag(row.isActive)}
-                      </span>
+                    <td className={cn(td, "text-center text-[12px] font-semibold", row.isActive ? "text-brand" : "text-slate-400")}>
+                      {formatActiveFlag(row.isActive)}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          <nav aria-label="Matter pages" className="pagination">
-            <div className="page-size">
-              <label htmlFor="matter-page-size">Rows per page</label>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-2.5">
+            <label className="flex items-center gap-2 text-[11px] text-slate-500">
+              Rows per page
               <select
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-[13px]"
                 id="matter-page-size"
                 onChange={(event) => {
                   const parsedValue = Number(event.target.value);
@@ -697,13 +708,13 @@ function MattersPanel({
                   </option>
                 ))}
               </select>
-            </div>
-            <p aria-live="polite" className="page-status">
+            </label>
+            <span aria-live="polite" className="text-[11px] tabular-nums text-slate-500">
               Page {matterPage} of {matterPageCount}
-            </p>
-            <div className="page-actions">
+            </span>
+            <div className="flex gap-2">
               <button
-                className="secondary-button"
+                className="rounded border border-slate-300 bg-white px-3 py-1.5 text-[13px] disabled:opacity-50"
                 disabled={matterPage === 1}
                 onClick={onPreviousMatterPage}
                 type="button"
@@ -711,7 +722,7 @@ function MattersPanel({
                 Previous
               </button>
               <button
-                className="secondary-button"
+                className="rounded border border-slate-300 bg-white px-3 py-1.5 text-[13px] disabled:opacity-50"
                 disabled={matterPage === matterPageCount}
                 onClick={onNextMatterPage}
                 type="button"
@@ -719,14 +730,14 @@ function MattersPanel({
                 Next
               </button>
             </div>
-          </nav>
-        </div>
+          </div>
+        </Card>
       )}
       {selectedMatter !== null && (
         <DetailPanel
           headerAction={
             <button
-              className="secondary-button"
+              className={cn(btn.ghost, "border-white/25 text-white/80 hover:bg-white/10")}
               onClick={onCorrectMatter}
               type="button"
             >
@@ -784,55 +795,36 @@ function DirectoryStatus({
     case "ready":
       return null;
     case "loading":
-      return (
-        <div
-          aria-label="Loading directory"
-          aria-valuetext="Loading"
-          className="loading-bar"
-          role="progressbar"
-        />
-      );
+      return <LoadingBar />;
     case "empty":
       return (
-        <section className="status-panel status-empty" role="status">
-          <div>
-            <h2>{emptyTitle}</h2>
-            <p>{emptyBody}</p>
-          </div>
-        </section>
+        <AlertBanner title={emptyTitle} variant="empty">
+          {emptyBody}
+        </AlertBanner>
       );
     case "unauthenticated":
       return (
-        <section className="status-panel status-error" role="alert">
-          <div>
-            <h2>Development session expired</h2>
-            <p>{state.message}</p>
-          </div>
-        </section>
+        <AlertBanner title="Development session expired" variant="error">
+          {state.message}
+        </AlertBanner>
       );
     case "unavailable":
       return (
-        <section className="status-panel status-error" role="alert">
-          <div>
-            <h2>{unavailableTitle}</h2>
-            <p>{state.message}</p>
-          </div>
-          <div className="status-actions">
-            <button className="secondary-button" onClick={onRetry} type="button">
-              Try again
-            </button>
-          </div>
-        </section>
+        <div className="space-y-3">
+          <AlertBanner title={unavailableTitle} variant="error">
+            {state.message}
+          </AlertBanner>
+          <button className={btn.ghost} onClick={onRetry} type="button">
+            Try again
+          </button>
+        </div>
       );
     case "missing":
     case "missing-parent":
       return (
-        <section className="status-panel status-info" role="status">
-          <div>
-            <h2>{missingTitle}</h2>
-            <p>{state.message}</p>
-          </div>
-        </section>
+        <AlertBanner title={missingTitle} variant="info">
+          {state.message}
+        </AlertBanner>
       );
     default: {
       const unhandledState: never = state;

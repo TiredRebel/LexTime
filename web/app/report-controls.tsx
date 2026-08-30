@@ -1,5 +1,8 @@
 import type { FormEvent } from "react";
 
+import { btn, field } from "@/components/kit";
+import { cn } from "@/lib/utils";
+
 export interface ClientOption {
   readonly id: number;
   readonly code: string;
@@ -30,34 +33,43 @@ export function ReportControls({
   validationMessage,
 }: ReportControlsProps): React.JSX.Element {
   return (
-    <form className="report-controls" onSubmit={onSubmit}>
-      <div className="field">
-        <label htmlFor="report-from">From</label>
+    <form className="flex flex-wrap items-end gap-2" onSubmit={onSubmit}>
+      <label className="block">
+        <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+          From
+        </span>
         <input
           aria-describedby={validationMessage === null ? undefined : "range-error"}
           aria-invalid={validationMessage !== null}
+          className={cn(field, "w-auto", validationMessage !== null && "border-red-500")}
           id="report-from"
           onChange={(event) => onFromChange(event.target.value)}
           required
           type="date"
           value={from}
         />
-      </div>
-      <div className="field">
-        <label htmlFor="report-to">To</label>
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+          To
+        </span>
         <input
           aria-describedby={validationMessage === null ? undefined : "range-error"}
           aria-invalid={validationMessage !== null}
+          className={cn(field, "w-auto", validationMessage !== null && "border-red-500")}
           id="report-to"
           onChange={(event) => onToChange(event.target.value)}
           required
           type="date"
           value={to}
         />
-      </div>
-      <div className="field">
-        <label htmlFor="client-filter">Client</label>
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+          Client
+        </span>
         <select
+          className={cn(field, "w-auto min-w-[10rem]")}
           id="client-filter"
           onChange={(event) => onClientChange(event.target.value)}
           value={selectedClientId}
@@ -69,12 +81,12 @@ export function ReportControls({
             </option>
           ))}
         </select>
-      </div>
-      <button className="primary-button" type="submit">
-        Apply range
+      </label>
+      <button className={btn.primary} type="submit">
+        Apply
       </button>
       {validationMessage !== null && (
-        <p className="field-error" id="range-error" role="alert">
+        <p className="w-full text-[12px] font-medium text-red-600" id="range-error" role="alert">
           {validationMessage}
         </p>
       )}

@@ -1,10 +1,7 @@
-import {
-  formatActiveFlag,
-  formatUtcDate,
-  partyPageSizes,
-  type ClientDto,
-  type PartyPageSize,
-} from "./parties-api";
+import { Card, td, th } from "@/components/kit";
+import { cn } from "@/lib/utils";
+
+import { formatActiveFlag, formatUtcDate, partyPageSizes, type ClientDto, type PartyPageSize } from "./parties-api";
 
 interface ClientsTableProps {
   readonly onNextPage: () => void;
@@ -42,60 +39,50 @@ export function ClientsTable({
   }
 
   return (
-    <div className="list-panel">
-      <div className="panel-heading">
-        <h2>Clients</h2>
-        <span className="row-count">
-          {firstRow}–{lastRow} of {total} matching
-        </span>
-      </div>
-      <table className="data-table data-table--wide">
+    <Card meta={`${firstRow}–${lastRow} of ${total} matching`} title="Client directory">
+      <table className="w-full text-left">
         <thead>
-          <tr>
-            <th scope="col">Code</th>
-            <th scope="col">Client name</th>
-            <th scope="col">Active</th>
-            <th scope="col">Registered</th>
+          <tr className="border-b border-slate-200">
+            <th className={th}>Code</th>
+            <th className={th}>Client name</th>
+            <th className={cn(th, "text-center")}>Active</th>
+            <th className={cn(th, "text-right")}>Registered</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-slate-100 tabular-nums">
           {rows.map((row) => {
             const isSelected = row.clientId === selectedId;
             return (
               <tr
-                className={isSelected ? "row-selected" : undefined}
                 key={row.clientId}
+                className={cn(
+                  "cursor-pointer transition-colors duration-150 hover:bg-slate-50",
+                  isSelected && "bg-brand/[0.07] hover:bg-brand/10",
+                )}
+                onClick={() => onSelect(row)}
               >
-                <td data-label="Code">
-                  <button
-                    aria-current={isSelected ? "true" : undefined}
-                    className="row-select"
-                    onClick={() => onSelect(row)}
-                    type="button"
-                  >
-                    {row.clientCode}
-                  </button>
+                <td className={cn(td, "font-semibold", isSelected ? "text-brand" : "text-ink")}>
+                  {row.clientCode}
                 </td>
-                <td data-label="Client name">{row.name}</td>
-                <td data-label="Active">
-                  <span
-                    className={
-                      row.isActive ? "status-text status-active" : "status-text"
-                    }
-                  >
-                    {formatActiveFlag(row.isActive)}
-                  </span>
+                <td className={cn(td, row.isActive ? "font-medium" : "text-slate-400")}>
+                  {row.name}
                 </td>
-                <td data-label="Registered">{formatUtcDate(row.createdAtUtc)}</td>
+                <td className={cn(td, "text-center text-[12px] font-semibold", row.isActive ? "text-brand" : "text-slate-400")}>
+                  {formatActiveFlag(row.isActive)}
+                </td>
+                <td className={cn(td, "text-right text-slate-500")}>
+                  {formatUtcDate(row.createdAtUtc)}
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
-      <nav aria-label="Client pages" className="pagination">
-        <div className="page-size">
-          <label htmlFor="client-page-size">Rows per page</label>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-2.5">
+        <label className="flex items-center gap-2 text-[11px] text-slate-500">
+          Rows per page
           <select
+            className="rounded border border-slate-300 bg-white px-2 py-1 text-[13px]"
             id="client-page-size"
             onChange={(event) => changePageSize(event.target.value)}
             value={pageSize}
@@ -106,13 +93,13 @@ export function ClientsTable({
               </option>
             ))}
           </select>
-        </div>
-        <p aria-live="polite" className="page-status">
+        </label>
+        <span aria-live="polite" className="text-[11px] tabular-nums text-slate-500">
           Page {page} of {pageCount}
-        </p>
-        <div className="page-actions">
+        </span>
+        <div className="flex gap-2">
           <button
-            className="secondary-button"
+            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-[13px] disabled:opacity-50"
             disabled={page === 1}
             onClick={onPreviousPage}
             type="button"
@@ -120,7 +107,7 @@ export function ClientsTable({
             Previous
           </button>
           <button
-            className="secondary-button"
+            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-[13px] disabled:opacity-50"
             disabled={page === pageCount}
             onClick={onNextPage}
             type="button"
@@ -128,7 +115,7 @@ export function ClientsTable({
             Next
           </button>
         </div>
-      </nav>
-    </div>
+      </div>
+    </Card>
   );
 }

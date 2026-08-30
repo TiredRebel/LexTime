@@ -1,4 +1,14 @@
+import { Plus } from "lucide-react";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+
+import {
+  AlertBanner,
+  btn,
+  field,
+  LoadingBar,
+  PageHeader,
+} from "@/components/kit";
+import { cn } from "@/lib/utils";
 
 import { DetailPanel } from "./detail-form";
 import {
@@ -422,57 +432,29 @@ export function TimeEntriesView({
     }
   }
 
-  const periodPrefix =
-    listingPage === null
-      ? state.kind === "loading"
-        ? "Loading range"
-        : "Selected range (not current)"
-      : "Current range";
-
   return (
     <>
-      <header className="report-header">
-        <div>
-          <p className="eyebrow">Time entries</p>
-          <h1 className="report-title">Recorded time</h1>
-          <p className="period-label">
-            {periodPrefix}: {from || "start required"} — {to || "end required"}
-          </p>
-        </div>
-        <button className="primary-button" onClick={openRecord} type="button">
-          Record time
+      <PageHeader
+        subtitle={`${from || "start required"} – ${to || "end required"}`}
+        title="Recorded time"
+      >
+        <button className={btn.primary} onClick={openRecord} type="button">
+          <Plus className="size-3.5" /> Record time
         </button>
-      </header>
+      </PageHeader>
 
-      <form className="report-controls entries-controls" onSubmit={applyFilters}>
-        <div className="field">
-          <label htmlFor="entries-from">From</label>
-          <input
-            id="entries-from"
-            onChange={(event) => setFrom(event.target.value)}
-            type="date"
-            value={from}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="entries-to">To</label>
-          <input
-            id="entries-to"
-            onChange={(event) => setTo(event.target.value)}
-            type="date"
-            value={to}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="entries-timekeeper">Timekeeper</label>
-          <select
-            id="entries-timekeeper"
-            onChange={(event) => {
-              setUserId(event.target.value);
-              setPage(1);
-            }}
-            value={userId}
-          >
+      <form className="flex flex-wrap items-end gap-2" onSubmit={applyFilters}>
+        <label className="block">
+          <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">From</span>
+          <input className={cn(field, "w-auto")} id="entries-from" onChange={(event) => setFrom(event.target.value)} type="date" value={from} />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">To</span>
+          <input className={cn(field, "w-auto")} id="entries-to" onChange={(event) => setTo(event.target.value)} type="date" value={to} />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Timekeeper</span>
+          <select className={cn(field, "w-auto")} id="entries-timekeeper" onChange={(event) => { setUserId(event.target.value); setPage(1); }} value={userId}>
             <option value="">All timekeepers</option>
             {timekeepers.map((timekeeper) => (
               <option key={timekeeper.userId} value={timekeeper.userId}>
@@ -480,14 +462,10 @@ export function TimeEntriesView({
               </option>
             ))}
           </select>
-        </div>
-        <div className="field">
-          <label htmlFor="entries-client">Client (for matter list)</label>
-          <select
-            id="entries-client"
-            onChange={(event) => void changeFilterClient(event.target.value)}
-            value={filterClientId}
-          >
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Client</span>
+          <select className={cn(field, "w-auto")} id="entries-client" onChange={(event) => void changeFilterClient(event.target.value)} value={filterClientId}>
             <option value="">All clients</option>
             {clients.map((client) => (
               <option key={client.clientId} value={client.clientId}>
@@ -495,17 +473,10 @@ export function TimeEntriesView({
               </option>
             ))}
           </select>
-        </div>
-        <div className="field">
-          <label htmlFor="entries-matter">Matter</label>
-          <select
-            id="entries-matter"
-            onChange={(event) => {
-              setMatterId(event.target.value);
-              setPage(1);
-            }}
-            value={matterId}
-          >
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Matter</span>
+          <select className={cn(field, "w-auto")} id="entries-matter" onChange={(event) => { setMatterId(event.target.value); setPage(1); }} value={matterId}>
             <option value="">All matters</option>
             {filterMatters.map((matter) => (
               <option key={matter.matterId} value={matter.matterId}>
@@ -513,12 +484,12 @@ export function TimeEntriesView({
               </option>
             ))}
           </select>
-        </div>
-        <button className="primary-button" type="submit">
+        </label>
+        <button className={btn.primary} type="submit">
           Apply
         </button>
         {validationMessage !== null && (
-          <p className="field-error" role="alert">
+          <p className="w-full text-[12px] font-medium text-red-600" role="alert">
             {validationMessage}
           </p>
         )}
@@ -531,7 +502,7 @@ export function TimeEntriesView({
         state={state}
       />
 
-      <div className="entries-workspace">
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         {state.kind === "ready" && (
           <TimeEntriesTable
             matterNames={matterNames}
@@ -636,69 +607,43 @@ function TimeEntriesStatus({
     case "ready":
       return null;
     case "loading":
-      return (
-        <div
-          aria-label="Loading time entries"
-          aria-valuetext="Loading"
-          className="loading-bar"
-          role="progressbar"
-        />
-      );
+      return <LoadingBar />;
     case "blocked-range":
       return (
-        <section className="status-panel status-error" role="alert">
-          <div>
-            <h2>No time entries shown</h2>
-            <p>
-              Fix the date range above — its start can&rsquo;t be after its
-              end — to see the listing again.
-            </p>
-          </div>
-        </section>
+        <AlertBanner title="No time entries shown" variant="error">
+          Fix the date range above — its start can&rsquo;t be after its end — to
+          see the listing again.
+        </AlertBanner>
       );
     case "empty":
       return (
-        <section className="status-panel status-empty" role="status">
-          <div>
-            <h2>No matching time entries</h2>
-            <p>
-              The listing completed successfully, but nothing matches these
-              filters. Try a broader range.
-            </p>
-          </div>
-        </section>
+        <AlertBanner title="No matching time entries" variant="empty">
+          The listing completed successfully, but nothing matches these filters.
+          Try a broader range.
+        </AlertBanner>
       );
     case "unauthenticated":
       return (
-        <section className="status-panel status-error" role="alert">
-          <div>
-            <h2>Development session expired</h2>
-            <p>{state.message}</p>
-          </div>
-        </section>
+        <AlertBanner title="Development session expired" variant="error">
+          {state.message}
+        </AlertBanner>
       );
     case "unavailable":
       return (
-        <section className="status-panel status-error" role="alert">
-          <div>
-            <h2>Time entries unavailable</h2>
-            <p>{state.message}</p>
-          </div>
-          <div className="status-actions">
-            <button className="secondary-button" onClick={onRetry} type="button">
-              Try again
-            </button>
-          </div>
-        </section>
+        <div className="space-y-3">
+          <AlertBanner title="Time entries unavailable" variant="error">
+            {state.message}
+          </AlertBanner>
+          <button className={btn.ghost} onClick={onRetry} type="button">
+            Try again
+          </button>
+        </div>
       );
     case "missing":
       return (
-        <section className="status-panel status-info" role="status">
-          <div>
-            <h2>Time entry not found</h2>
-            <p>{state.message}</p>
-          </div>
-        </section>
+        <AlertBanner title="Time entry not found" variant="info">
+          {state.message}
+        </AlertBanner>
       );
     default: {
       const unhandledState: never = state;
@@ -728,10 +673,10 @@ function TimeEntryDetail({
     <DetailPanel
       actions={
         <>
-          <button className="secondary-button" onClick={onDelete} type="button">
+          <button className={btn.danger} onClick={onDelete} type="button">
             Delete
           </button>
-          <button className="primary-button" onClick={onEdit} type="button">
+          <button className={btn.primary} onClick={onEdit} type="button">
             Edit entry
           </button>
         </>
@@ -739,7 +684,7 @@ function TimeEntryDetail({
       headerAction={
         <button
           aria-label="Close details"
-          className="secondary-button"
+          className="rounded border border-white/25 px-2 py-1 text-[11px] font-medium text-white/80 transition-colors hover:bg-white/10"
           onClick={onClose}
           type="button"
         >

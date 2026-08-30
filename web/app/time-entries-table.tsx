@@ -1,3 +1,6 @@
+import { Card, td, th } from "@/components/kit";
+import { cn } from "@/lib/utils";
+
 import { formatCurrency } from "./reporting";
 import {
   formatDurationHours,
@@ -47,57 +50,46 @@ export function TimeEntriesTable({
   }
 
   return (
-    <div className="list-panel">
-      <div className="panel-heading">
-        <h2>Time entries</h2>
-        <span className="row-count">
-          {firstRow}–{lastRow} of {total} matching
-        </span>
-      </div>
-      <table className="data-table data-table--wide">
+    <Card meta={`${firstRow}–${lastRow} of ${total} matching`} title="Time entries">
+      <table className="w-full text-left">
         <thead>
-          <tr>
-            <th scope="col">Date</th>
-            <th scope="col">Narrative</th>
-            <th scope="col">Timekeeper</th>
-            <th scope="col">Matter</th>
-            <th scope="col">Duration</th>
-            <th scope="col">Billable</th>
-            <th scope="col">Rate</th>
+          <tr className="border-b border-slate-200">
+            <th className={th}>Date</th>
+            <th className={th}>Narrative</th>
+            <th className={th}>Timekeeper</th>
+            <th className={th}>Matter</th>
+            <th className={cn(th, "text-right")}>Duration</th>
+            <th className={cn(th, "text-center")}>Billable</th>
+            <th className={cn(th, "text-right")}>Rate</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-slate-100 tabular-nums">
           {rows.map((row) => {
             const isSelected = row.timeEntryId === selectedId;
             return (
               <tr
-                className={isSelected ? "row-selected" : undefined}
                 key={row.timeEntryId}
+                className={cn(
+                  "cursor-pointer transition-colors duration-150 hover:bg-slate-50",
+                  isSelected && "bg-brand/[0.07] hover:bg-brand/10",
+                )}
+                onClick={() => onSelect(row)}
               >
-                <td data-label="Date">{row.workDate}</td>
-                <td data-label="Narrative">
-                  <button
-                    aria-current={isSelected ? "true" : undefined}
-                    className="row-select"
-                    onClick={() => onSelect(row)}
-                    type="button"
-                  >
-                    {row.narrative}
-                  </button>
-                </td>
-                <td data-label="Timekeeper">
+                <td className={cn(td, "text-slate-600")}>{row.workDate}</td>
+                <td className={cn(td, "font-medium")}>{row.narrative}</td>
+                <td className={td}>
                   {timekeeperNames.get(row.userId) ?? `#${row.userId}`}
                 </td>
-                <td data-label="Matter">
+                <td className={cn(td, "text-slate-600")}>
                   {matterNames.get(row.matterId) ?? `#${row.matterId}`}
                 </td>
-                <td data-label="Duration">
+                <td className={cn(td, "text-right font-semibold")}>
                   {formatDurationHours(row.durationMinutes)} h
                 </td>
-                <td data-label="Billable">
-                  {row.isBillable ? "Billable" : "Not billable"}
+                <td className={cn(td, "text-center text-[12px] font-semibold", row.isBillable ? "text-brand" : "text-slate-400")}>
+                  {row.isBillable ? "Billable" : "Non-bill."}
                 </td>
-                <td data-label="Rate">
+                <td className={cn(td, "text-right")}>
                   {formatCurrency(row.hourlyRateSnapshot)}
                 </td>
               </tr>
@@ -105,10 +97,11 @@ export function TimeEntriesTable({
           })}
         </tbody>
       </table>
-      <nav aria-label="Time entry pages" className="pagination">
-        <div className="page-size">
-          <label htmlFor="entry-page-size">Rows per page</label>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-2.5">
+        <label className="flex items-center gap-2 text-[11px] text-slate-500">
+          Rows per page
           <select
+            className="rounded border border-slate-300 bg-white px-2 py-1 text-[13px]"
             id="entry-page-size"
             onChange={(event) => changePageSize(event.target.value)}
             value={pageSize}
@@ -119,13 +112,13 @@ export function TimeEntriesTable({
               </option>
             ))}
           </select>
-        </div>
-        <p aria-live="polite" className="page-status">
+        </label>
+        <span aria-live="polite" className="text-[11px] tabular-nums text-slate-500">
           Page {page} of {pageCount}
-        </p>
-        <div className="page-actions">
+        </span>
+        <div className="flex gap-2">
           <button
-            className="secondary-button"
+            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-[13px] disabled:opacity-50"
             disabled={page === 1}
             onClick={onPreviousPage}
             type="button"
@@ -133,7 +126,7 @@ export function TimeEntriesTable({
             Previous
           </button>
           <button
-            className="secondary-button"
+            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-[13px] disabled:opacity-50"
             disabled={page === pageCount}
             onClick={onNextPage}
             type="button"
@@ -141,7 +134,7 @@ export function TimeEntriesTable({
             Next
           </button>
         </div>
-      </nav>
-    </div>
+      </div>
+    </Card>
   );
 }
