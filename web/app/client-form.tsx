@@ -1,5 +1,7 @@
 import { type FormEvent, useState } from "react";
 
+import { Field, field } from "@/components/kit";
+
 import { DetailForm, type DetailFormMessage } from "./detail-form";
 import {
   type ClientDto,
@@ -96,43 +98,43 @@ export function ClientForm({
       titleId="client-form-title"
     >
       {mode === "register" ? (
-        <div className="field">
-          <label htmlFor="client-code">Client code</label>
+        <Field label="Client code">
           <input
             autoComplete="off"
+            className={field}
             id="client-code"
             onChange={(event) => setClientCode(event.target.value)}
             required
             value={clientCode}
           />
-        </div>
+        </Field>
       ) : (
-        <div className="field">
-          <span>Client code</span>
-          <p className="readonly-value">{client?.clientCode}</p>
-        </div>
+        <Field label="Client code">
+          <p className="flex min-h-[2.25rem] items-center text-[13px] text-ink">
+            {client?.clientCode}
+          </p>
+        </Field>
       )}
-      <div className="field">
-        <label htmlFor="client-name">Client name</label>
+      <Field label="Client name">
         <input
+          className={field}
           id="client-name"
           onChange={(event) => setName(event.target.value)}
           required
           value={name}
         />
-      </div>
+      </Field>
       {mode === "correct" && (
-        <div className="field checkbox-field">
-          <label htmlFor="client-active">
-            <input
-              checked={isActive}
-              id="client-active"
-              onChange={(event) => setIsActive(event.target.checked)}
-              type="checkbox"
-            />
-            {formatActiveFlag(isActive)}
-          </label>
-        </div>
+        <label className="flex items-center gap-2 text-[13px] font-medium text-ink">
+          <input
+            checked={isActive}
+            className="size-4 accent-brand"
+            id="client-active"
+            onChange={(event) => setIsActive(event.target.checked)}
+            type="checkbox"
+          />
+          {formatActiveFlag(isActive)}
+        </label>
       )}
     </DetailForm>
   );

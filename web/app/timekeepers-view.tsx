@@ -1,5 +1,16 @@
 import { useEffect, useState } from "react";
 
+import {
+  AlertBanner,
+  btn,
+  Card,
+  LoadingBar,
+  PageHeader,
+  td,
+  th,
+} from "@/components/kit";
+import { cn } from "@/lib/utils";
+
 import { DetailPanel } from "./detail-form";
 import {
   formatActiveFlag,
@@ -108,79 +119,60 @@ export function TimekeepersView({
 
   return (
     <>
-      <header className="report-header">
-        <div>
-          <p className="eyebrow">Directories</p>
-          <h1 className="report-title">Timekeepers</h1>
-          <p className="period-label">Seeded roster. Read-only.</p>
-        </div>
-      </header>
+      <PageHeader subtitle="Seeded roster. Read-only." title="Timekeepers" />
 
       <TimekeepersStatus
         onRetry={() => void loadListing(token, page, pageSize)}
         state={state}
       />
 
-      <div className="entries-workspace">
+      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         {state.kind === "ready" && (
-          <div className="list-panel">
-            <div className="panel-heading">
-              <h2>Timekeepers</h2>
-              <span className="row-count">
-                {firstRow}–{lastRow} of {total} matching
-              </span>
-            </div>
-            <table className="data-table data-table--wide">
+          <Card
+            meta={`${firstRow}–${lastRow} of ${total} matching`}
+            title="Timekeeper directory"
+          >
+            <table className="w-full text-left">
               <thead>
-                <tr>
-                  <th scope="col">Timekeeper</th>
-                  <th scope="col">Email</th>
-                  <th scope="col">Current rate</th>
-                  <th scope="col">Active</th>
+                <tr className="border-b border-slate-200">
+                  <th className={th}>Timekeeper</th>
+                  <th className={th}>Email</th>
+                  <th className={cn(th, "text-right")}>Current rate</th>
+                  <th className={cn(th, "text-center")}>Active</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 tabular-nums">
                 {rows.map((row) => {
                   const isSelected = row.userId === selected?.userId;
                   return (
                     <tr
-                      className={isSelected ? "row-selected" : undefined}
                       key={row.userId}
+                      className={cn(
+                        "cursor-pointer transition-colors duration-150 hover:bg-slate-50",
+                        isSelected && "bg-brand/[0.07]",
+                      )}
+                      onClick={() => void selectTimekeeper(row)}
                     >
-                      <td data-label="Timekeeper">
-                        <button
-                          aria-current={isSelected ? "true" : undefined}
-                          className="row-select"
-                          onClick={() => void selectTimekeeper(row)}
-                          type="button"
-                        >
-                          {row.fullName}
-                        </button>
+                      <td className={cn(td, "font-semibold", isSelected ? "text-brand" : "")}>
+                        {row.fullName}
                       </td>
-                      <td data-label="Email">{row.email}</td>
-                      <td data-label="Current rate">
+                      <td className={cn(td, "text-slate-600")}>{row.email}</td>
+                      <td className={cn(td, "text-right font-semibold")}>
                         {formatCurrency(row.defaultHourlyRate)}
                       </td>
-                      <td data-label="Active">
-                        <span
-                          className={
-                            row.isActive
-                              ? "status-text status-active"
-                              : "status-text"
-                          }
-                        >
-                          {formatActiveFlag(row.isActive)}
-                        </span>
+                      <td className={cn(td, "text-center text-[12px] font-semibold", row.isActive ? "text-brand" : "text-slate-400")}>
+                        {formatActiveFlag(row.isActive)}
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-            <nav aria-label="Timekeeper pages" className="pagination">
-              <div className="page-size">
-                <label htmlFor="timekeeper-page-size">Rows per page</label>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-2.5">
+              <label className="flex items-center gap-2 text-[11px] text-slate-500">
+                Rows per page
                 <select
+                  className="rounded border border-slate-300 bg-white px-2 py-1 text-[13px]"
                   id="timekeeper-page-size"
                   onChange={(event) => {
                     const parsedValue = Number(event.target.value);
@@ -200,13 +192,13 @@ export function TimekeepersView({
                     </option>
                   ))}
                 </select>
-              </div>
-              <p aria-live="polite" className="page-status">
+              </label>
+              <span aria-live="polite" className="text-[11px] tabular-nums text-slate-500">
                 Page {page} of {pageCount}
-              </p>
-              <div className="page-actions">
+              </span>
+              <div className="flex gap-2">
                 <button
-                  className="secondary-button"
+                  className="rounded border border-slate-300 bg-white px-3 py-1.5 text-[13px] disabled:opacity-50"
                   disabled={page === 1}
                   onClick={() => {
                     const nextPage = Math.max(page - 1, 1);
@@ -218,7 +210,7 @@ export function TimekeepersView({
                   Previous
                 </button>
                 <button
-                  className="secondary-button"
+                  className="rounded border border-slate-300 bg-white px-3 py-1.5 text-[13px] disabled:opacity-50"
                   disabled={page === pageCount}
                   onClick={() => {
                     const nextPage = Math.min(page + 1, pageCount);
@@ -230,8 +222,8 @@ export function TimekeepersView({
                   Next
                 </button>
               </div>
-            </nav>
-          </div>
+            </div>
+          </Card>
         )}
 
         {selected !== null && (
@@ -239,7 +231,7 @@ export function TimekeepersView({
             headerAction={
               <button
                 aria-label="Close details"
-                className="secondary-button"
+                className="rounded border border-white/25 px-2 py-1 text-[11px] font-medium text-white/80 transition-colors hover:bg-white/10"
                 onClick={() => setSelected(null)}
                 type="button"
               >
@@ -249,7 +241,7 @@ export function TimekeepersView({
             title={selected.fullName}
             titleId="timekeeper-detail-title"
           >
-            <p className="readonly-banner" role="note">
+            <p className="rounded-md border-l-[3px] border-brand bg-brand/5 px-4 py-3 text-[13px] text-slate-700" role="note">
               Read-only profile. Timekeepers are seeded and cannot be created
               or edited here.
             </p>
@@ -289,56 +281,35 @@ function TimekeepersStatus({
     case "missing-parent":
       return null;
     case "loading":
-      return (
-        <div
-          aria-label="Loading timekeepers"
-          aria-valuetext="Loading"
-          className="loading-bar"
-          role="progressbar"
-        />
-      );
+      return <LoadingBar />;
     case "empty":
       return (
-        <section className="status-panel status-empty" role="status">
-          <div>
-            <h2>No timekeepers</h2>
-            <p>
-              The listing completed successfully, but the roster is empty.
-            </p>
-          </div>
-        </section>
+        <AlertBanner title="No timekeepers" variant="empty">
+          The listing completed successfully, but the roster is empty.
+        </AlertBanner>
       );
     case "unauthenticated":
       return (
-        <section className="status-panel status-error" role="alert">
-          <div>
-            <h2>Development session expired</h2>
-            <p>{state.message}</p>
-          </div>
-        </section>
+        <AlertBanner title="Development session expired" variant="error">
+          {state.message}
+        </AlertBanner>
       );
     case "unavailable":
       return (
-        <section className="status-panel status-error" role="alert">
-          <div>
-            <h2>Timekeepers unavailable</h2>
-            <p>{state.message}</p>
-          </div>
-          <div className="status-actions">
-            <button className="secondary-button" onClick={onRetry} type="button">
-              Try again
-            </button>
-          </div>
-        </section>
+        <div className="space-y-3">
+          <AlertBanner title="Timekeepers unavailable" variant="error">
+            {state.message}
+          </AlertBanner>
+          <button className={btn.ghost} onClick={onRetry} type="button">
+            Try again
+          </button>
+        </div>
       );
     case "missing":
       return (
-        <section className="status-panel status-info" role="status">
-          <div>
-            <h2>Timekeeper not found</h2>
-            <p>{state.message}</p>
-          </div>
-        </section>
+        <AlertBanner title="Timekeeper not found" variant="info">
+          {state.message}
+        </AlertBanner>
       );
     default: {
       const unhandledState: never = state;

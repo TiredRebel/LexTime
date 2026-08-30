@@ -1,5 +1,7 @@
 import { type FormEvent, useState } from "react";
 
+import { Field, field } from "@/components/kit";
+
 import { DetailForm, type DetailFormMessage } from "./detail-form";
 import {
   type MatterDto,
@@ -110,59 +112,59 @@ export function MatterForm({
       title={mode === "open" ? "Open matter" : "Edit matter"}
       titleId="matter-form-title"
     >
-      <div className="field">
-        <span>Client</span>
-        <p className="readonly-value">{clientLabel}</p>
-      </div>
+      <Field label="Client">
+        <p className="flex min-h-[2.25rem] items-center text-[13px] text-ink">
+          {clientLabel}
+        </p>
+      </Field>
       {mode === "open" ? (
-        <div className="field">
-          <label htmlFor="matter-number">Matter number</label>
+        <Field label="Matter number">
           <input
             autoComplete="off"
+            className={field}
             id="matter-number"
             onChange={(event) => setMatterNumber(event.target.value)}
             required
             value={matterNumber}
           />
-        </div>
+        </Field>
       ) : (
-        <div className="field">
-          <span>Matter number</span>
-          <p className="readonly-value">{matter?.matterNumber}</p>
-        </div>
+        <Field label="Matter number">
+          <p className="flex min-h-[2.25rem] items-center text-[13px] text-ink">
+            {matter?.matterNumber}
+          </p>
+        </Field>
       )}
-      <div className="field">
-        <label htmlFor="matter-name">Matter name</label>
+      <Field label="Matter name">
         <input
+          className={field}
           id="matter-name"
           onChange={(event) => setName(event.target.value)}
           required
           value={name}
         />
-      </div>
-      <div className="field checkbox-field">
-        <label htmlFor="matter-billable">
+      </Field>
+      <label className="flex items-center gap-2 text-[13px] font-medium text-ink">
+        <input
+          checked={isBillableByDefault}
+          className="size-4 accent-brand"
+          id="matter-billable"
+          onChange={(event) => setIsBillableByDefault(event.target.checked)}
+          type="checkbox"
+        />
+        Default billable
+      </label>
+      {mode === "correct" && (
+        <label className="flex items-center gap-2 text-[13px] font-medium text-ink">
           <input
-            checked={isBillableByDefault}
-            id="matter-billable"
-            onChange={(event) => setIsBillableByDefault(event.target.checked)}
+            checked={isActive}
+            className="size-4 accent-brand"
+            id="matter-active"
+            onChange={(event) => setIsActive(event.target.checked)}
             type="checkbox"
           />
-          Default billable
+          {formatActiveFlag(isActive)}
         </label>
-      </div>
-      {mode === "correct" && (
-        <div className="field checkbox-field">
-          <label htmlFor="matter-active">
-            <input
-              checked={isActive}
-              id="matter-active"
-              onChange={(event) => setIsActive(event.target.checked)}
-              type="checkbox"
-            />
-            {formatActiveFlag(isActive)}
-          </label>
-        </div>
       )}
     </DetailForm>
   );

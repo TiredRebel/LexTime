@@ -1,5 +1,7 @@
 import type { FormEvent, ReactNode } from "react";
 
+import { btn, DetailPanel as KitDetailPanel } from "@/components/kit";
+
 export interface DetailFormMessage {
   readonly detail: string;
   readonly id?: string;
@@ -13,8 +15,7 @@ interface DetailFormMessagesProps {
 
 /**
  * Shared field-error / conflict / domain-rule-violation block used below every
- * detail form's fields. Exported separately so a bespoke panel (time entry
- * delete) can reuse it without going through the full DetailForm wrapper.
+ * detail form's fields.
  */
 export function DetailFormMessages({
   fieldError,
@@ -25,13 +26,17 @@ export function DetailFormMessages({
   }
 
   return (
-    <div className="form-messages" role="alert">
-      {fieldError !== null && <p className="field-error">{fieldError}</p>}
+    <div className="space-y-2" role="alert">
+      {fieldError !== null && (
+        <p className="text-[12px] font-medium text-red-600">{fieldError}</p>
+      )}
       {messages.length > 0 && (
-        <ul className="violation-list">
+        <ul className="list-disc space-y-1 pl-4 text-[12px] text-red-600">
           {messages.map((message) => (
             <li key={message.id ?? `${message.rule}-${message.detail}`}>
-              <span className="violation-rule">{message.rule}</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-600">
+                {message.rule}
+              </span>{" "}
               {message.detail}
             </li>
           ))}
@@ -49,12 +54,7 @@ interface DetailPanelProps {
   readonly titleId: string;
 }
 
-/**
- * Shared chrome for the read-only detail panels (client, matter, time entry,
- * timekeeper): the detail-pane section and its header (title + a header
- * action, usually Close). Body content and an optional actions row are
- * passed in — this is the non-form sibling of DetailForm below.
- */
+/** Read-only detail shell with navy header bar. */
 export function DetailPanel({
   actions,
   children,
@@ -63,13 +63,21 @@ export function DetailPanel({
   titleId,
 }: DetailPanelProps): React.JSX.Element {
   return (
-    <section aria-labelledby={titleId} className="detail-pane">
-      <div className="detail-header">
-        <h2 id={titleId}>{title}</h2>
-        {headerAction}
+    <section aria-labelledby={titleId}>
+      <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
+        <div className="flex items-center justify-between bg-ink px-4 py-3">
+          <h2 className="font-display text-[15px] font-bold text-white" id={titleId}>
+            {title}
+          </h2>
+          {headerAction}
+        </div>
+        <div className="space-y-4 p-4">{children}</div>
+        {actions !== undefined && (
+          <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-4 py-3">
+            {actions}
+          </div>
+        )}
       </div>
-      {children}
-      {actions !== undefined && <div className="form-actions">{actions}</div>}
     </section>
   );
 }
@@ -86,12 +94,7 @@ interface DetailFormProps {
   readonly titleId: string;
 }
 
-/**
- * Shared chrome for the client / matter / time-entry detail forms: the
- * detail-pane section, its header (title + Close), the form element, the
- * field/conflict/violation messages, and the Cancel/Save actions. Each
- * entity's own field markup is passed as children.
- */
+/** Editable detail form shell with Cancel/Save actions. */
 export function DetailForm({
   children,
   fieldError,
@@ -104,30 +107,19 @@ export function DetailForm({
   titleId,
 }: DetailFormProps): React.JSX.Element {
   return (
-    <section aria-labelledby={titleId} className="detail-pane">
-      <div className="detail-header">
-        <h2 id={titleId}>{title}</h2>
-        <button
-          aria-label="Close"
-          className="secondary-button"
-          onClick={onCancel}
-          type="button"
-        >
-          Close
-        </button>
-      </div>
-      <form className="entry-form" noValidate onSubmit={onSubmit}>
+    <KitDetailPanel onClose={onCancel} title={title}>
+      <form className="space-y-4" noValidate onSubmit={onSubmit}>
         {children}
         <DetailFormMessages fieldError={fieldError} messages={messages} />
-        <div className="form-actions">
-          <button className="secondary-button" onClick={onCancel} type="button">
+        <div className="flex flex-wrap justify-end gap-2 pt-2">
+          <button className={btn.ghost} onClick={onCancel} type="button">
             Cancel
           </button>
-          <button className="primary-button" disabled={isSubmitting} type="submit">
+          <button className={btn.primary} disabled={isSubmitting} type="submit">
             {submitLabel}
           </button>
         </div>
       </form>
-    </section>
+    </KitDetailPanel>
   );
 }

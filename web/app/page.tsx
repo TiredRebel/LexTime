@@ -2,6 +2,14 @@
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 
+import { AppShell, type ShellDestination } from "@/components/app-shell";
+import { PageHeader, StatStrip } from "@/components/kit";
+
+import {
+  ClientFilterEmptyStatus,
+  DevelopmentTokenPrompt,
+  ReportStatus,
+} from "./dashboard-status";
 import {
   type DashboardState,
   stateFromResponse,
@@ -17,11 +25,6 @@ import {
   RollupRequestError,
 } from "./reporting";
 import { type PageSize, RollupTable } from "./rollup-table";
-import {
-  ClientFilterEmptyStatus,
-  DevelopmentTokenPrompt,
-  ReportStatus,
-} from "./dashboard-status";
 import { TimeEntriesView } from "./time-entries-view";
 import { ClientsView } from "./clients-view";
 import { TimekeepersView } from "./timekeepers-view";
@@ -34,13 +37,9 @@ import {
 const initialFrom = "2026-06-18";
 const initialTo = "2026-08-13";
 
-type ShellDestination =
-  | "reports"
-  | "time-entries"
-  | "clients"
-  | "timekeepers";
+type ShellDestinationAlias = ShellDestination;
 
-function destinationFromHash(): ShellDestination {
+function destinationFromHash(): ShellDestinationAlias {
   switch (window.location.hash) {
     case "#time-entries":
       return "time-entries";
@@ -67,7 +66,7 @@ export default function DashboardPage(): React.JSX.Element {
   const [validationMessage, setValidationMessage] = useState<string | null>(
     null,
   );
-  const [destination, setDestination] = useState<ShellDestination>("reports");
+  const [destination, setDestination] = useState<ShellDestinationAlias>("reports");
   const [navOpen, setNavOpen] = useState(false);
 
   async function loadReport(
@@ -268,109 +267,15 @@ export default function DashboardPage(): React.JSX.Element {
 
   const displayedFrom = response?.from ?? from;
   const displayedTo = response?.to ?? to;
-  const periodPrefix =
-    response === null
-      ? state.kind === "loading"
-        ? "Loading period"
-        : "Selected period (not current)"
-      : "Current period";
 
   return (
-    <div className={navOpen ? "app-shell nav-open" : "app-shell"}>
-      <header className="shell-topbar">
-        <div className="wordmark">LexTime</div>
-        <button
-          aria-controls="app-sidebar"
-          aria-expanded={navOpen}
-          className="nav-toggle"
-          onClick={() => setNavOpen((open) => !open)}
-          type="button"
-        >
-          {navOpen ? "Close" : "Menu"}
-        </button>
-      </header>
-      <button
-        aria-label="Close menu"
-        className="nav-backdrop"
-        hidden={!navOpen}
-        onClick={() => setNavOpen(false)}
-        type="button"
-      />
-      <aside className="sidebar" id="app-sidebar">
-        <div className="wordmark">LexTime</div>
-        <nav aria-label="Primary" className="side-nav">
-          <a
-            aria-current={destination === "time-entries" ? "page" : undefined}
-            className={
-              destination === "time-entries"
-                ? "nav-item nav-item-current"
-                : "nav-item"
-            }
-            href="#time-entries"
-            onClick={() => setNavOpen(false)}
-          >
-            <span aria-hidden="true" className="nav-icon">
-              T
-            </span>
-            Time entries
-          </a>
-          <a
-            aria-current={destination === "clients" ? "page" : undefined}
-            className={
-              destination === "clients"
-                ? "nav-item nav-item-current"
-                : "nav-item"
-            }
-            href="#clients"
-            onClick={() => setNavOpen(false)}
-          >
-            <span aria-hidden="true" className="nav-icon">
-              C
-            </span>
-            Clients
-          </a>
-          <a
-            aria-current={destination === "timekeepers" ? "page" : undefined}
-            className={
-              destination === "timekeepers"
-                ? "nav-item nav-item-current"
-                : "nav-item"
-            }
-            href="#timekeepers"
-            onClick={() => setNavOpen(false)}
-          >
-            <span aria-hidden="true" className="nav-icon">
-              K
-            </span>
-            Timekeepers
-          </a>
-          <a
-            aria-current={destination === "reports" ? "page" : undefined}
-            className={
-              destination === "reports"
-                ? "nav-item nav-item-current"
-                : "nav-item"
-            }
-            href="#reports"
-            onClick={() => setNavOpen(false)}
-          >
-            <span aria-hidden="true" className="nav-icon">
-              R
-            </span>
-            Reports
-          </a>
-        </nav>
-        <div className="sidebar-note">
-          Thin consumer of the finished API.
-          <br />
-          No new billing rules.
-          <br />
-          <button className="secondary-button" onClick={signOut} type="button">
-            Clear session
-          </button>
-        </div>
-      </aside>
-      <main className="main-content" id="main-content">
+    <AppShell
+      destination={destination}
+      navOpen={navOpen}
+      onNavClose={() => setNavOpen(false)}
+      onNavToggle={() => setNavOpen((open) => !open)}
+      onSignOut={signOut}
+    >
         {destination === "time-entries" ? (
           <TimeEntriesView
             onUnauthorized={(message) => {
@@ -400,16 +305,10 @@ export default function DashboardPage(): React.JSX.Element {
           />
         ) : (
           <>
-        <header className="report-header">
-          <div>
-            <p className="eyebrow">Reports / Weekly</p>
-            <h1 className="report-title">Weekly billable rollup</h1>
-            <p className="period-label">
-              {periodPrefix}: {displayedFrom || "start required"} —{" "}
-              {displayedTo || "end required"}
-            </p>
-          </div>
-        </header>
+        <PageHeader
+          subtitle={`${displayedFrom || "start required"} – ${displayedTo || "end required"}`}
+          title="Weekly billable rollup"
+        />
 
         <ReportControls
           clients={clients}
@@ -434,24 +333,23 @@ export default function DashboardPage(): React.JSX.Element {
 
         {state.kind === "ready" && visibleRows.length > 0 && (
           <>
-            <section aria-label="Period summary" className="summary-grid">
-              <article className="summary-card">
-                <span className="summary-label">Billable hours</span>
-                <div className="summary-value">
-                  {formatHours(totals.billableHours)}
-                </div>
-              </article>
-              <article className="summary-card">
-                <span className="summary-label">Billable amount</span>
-                <div className="summary-value">
-                  {formatCurrency(totals.billableAmount)}
-                </div>
-              </article>
-              <article className="summary-card">
-                <span className="summary-label">Clients shown</span>
-                <div className="summary-value">{totals.clientCount}</div>
-              </article>
-            </section>
+            <StatStrip
+              items={[
+                {
+                  label: "Billable hrs",
+                  value: formatHours(totals.billableHours),
+                },
+                {
+                  label: "Amount",
+                  value: formatCurrency(totals.billableAmount),
+                },
+                {
+                  label: "Clients shown",
+                  value: String(totals.clientCount),
+                },
+              ]}
+              cols={3}
+            />
             <RollupTable
               onNextPage={() =>
                 setPage((currentPage) =>
@@ -472,7 +370,6 @@ export default function DashboardPage(): React.JSX.Element {
         )}
           </>
         )}
-      </main>
-    </div>
+    </AppShell>
   );
 }
